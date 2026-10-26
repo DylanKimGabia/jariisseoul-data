@@ -1,0 +1,44 @@
+name: "도시데이터 실시간 수집 (10분마다)"
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # 121개 장소 호출에 1~2분 걸려서 10분 간격
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-citydata
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: Collect
+        env:
+          SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
+        run: python scripts/collect_citydata_realtime.py || echo "collect failed (기록은 data/citydata/log.csv)"
+
+      - name: Commit
+        run: |
+          git config user.name  "parking-bot"
+          git config user.email "parking-bot@users.noreply.github.com"
+          git add data/citydata
+          git diff --cached --quiet && exit 0
+          git commit -m "citydata: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')"
+          for i in 1 2 3 4 5; do
+            git pull --rebase && git push && exit 0
+            sleep $((i * 5))
+          done
+          exit 1

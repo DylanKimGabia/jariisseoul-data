@@ -37,8 +37,8 @@ jobs:
           git add data
           git diff --cached --quiet && exit 0
           git commit -m "data: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')"
-          for i in 1 2 3; do
+          for i in 1 2 3 4 5; do
             git pull --rebase && git push && exit 0
-            sleep 5
+            sleep $((i * 5))
           done
           exit 1
