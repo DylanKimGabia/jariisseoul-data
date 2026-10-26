@@ -27,9 +27,9 @@ round=0
 while [ "$(date +%s)" -lt "$end" ]; do
   stamp=$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')
 
-  python scripts/collect_parking_realtime.py || echo "주차장 수집 실패 ($stamp)"
+  timeout 90 python scripts/collect_parking_realtime.py || echo "주차장 수집 실패 ($stamp)"
   if [ $((round % 2)) -eq 0 ]; then
-    python scripts/collect_citydata_realtime.py || echo "도시데이터 수집 실패 ($stamp)"
+    timeout 240 python scripts/collect_citydata_realtime.py || echo "도시데이터 수집 실패 ($stamp)"
   fi
   commit_push "data: $stamp" || true
 

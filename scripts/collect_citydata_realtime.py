@@ -29,6 +29,7 @@ URL = "http://openapi.seoul.go.kr:8088/{key}/json/citydata/1/5/{area}"
 AREAS_FILE = os.path.join("data", "reference", "citydata_areas.csv")
 OUT = os.path.join("data", "citydata")
 STATE_FILE = os.path.join(OUT, "_state.json")
+TIME_BUDGET_SEC = 200  # 전체 수집 제한 시간. 넘으면 남은 장소는 다음 회차로 넘긴다
 
 COLS = {
     "population": ["collected_at", "AREA_CD", "AREA_NM", "PPLTN_TIME", "AREA_CONGEST_LVL",
@@ -70,11 +71,11 @@ def load_state():
         return {}
 
 
-def fetch(area, retries=3):
+def fetch(area, retries=2):
     last = None
     for i in range(retries):
         try:
-            r = requests.get(URL.format(key=KEY, area=area), timeout=40)
+            r = requests.get(URL.format(key=KEY, area=area), timeout=(5, 15))
             body = r.json()
             city = body.get("CITYDATA")
             if isinstance(city, dict) and city.get("AREA_NM"):
@@ -82,7 +83,7 @@ def fetch(area, retries=3):
             last = RuntimeError(json.dumps(body.get("RESULT", body), ensure_ascii=False)[:150])
         except Exception as e:
             last = e
-        time.sleep(3 * (i + 1))
+        time.sleep(2)
     raise last
 
 
@@ -123,7 +124,16 @@ def main():
     events, seen_prk = [], set()
     ok, fails = 0, []
 
-    for area in load_areas():
+    started = time.time()
+    areas = load_areas()
+    # 시간 초과로 끊겼던 장소부터 시작해서, 늘 같은 장소만 빠지지 않게 한다
+    start = state.get("_next_start", 0) % len(areas)
+    state["_next_start"] = 0
+    for idx, area in enumerate(areas[start:] + areas[:start]):
+        if time.time() - started > TIME_BUDGET_SEC:
+            fails.append(f"{area}부터 {len(areas) - idx}곳:시간초과로 건너뜀")
+            state["_next_start"] = (start + idx) % len(areas)
+            break
         try:
             c = fetch(area)
         except Exception as e:
