@@ -19,8 +19,11 @@
 
 | 코드 | 실행 설정 | 하는 일 |
 |---|---|---|
-| `scripts/collect_parking_realtime.py` | `collect_parking_realtime.yml` | 시영주차장 122곳 실시간 주차대수, 5분마다 |
-| `scripts/collect_citydata_realtime.py` | `collect_citydata_realtime.yml` | 도시데이터 121개 장소 인구·예측·날씨·도로·상권·주차, 10분마다 |
+| `scripts/run_collect_loop.sh` | `collect_loop.yml` | 작업 하나가 약 5시간 40분 동안 켜져서 주차장 5분, 도시데이터 10분마다 수집·커밋. 끝나면 자기 자신을 다시 실행 |
+| `scripts/collect_parking_realtime.py` | `collect_parking_realtime.yml` (수동용) | 시영주차장 122곳 실시간 주차대수 1회 수집 |
+| `scripts/collect_citydata_realtime.py` | `collect_citydata_realtime.yml` (수동용) | 도시데이터 121개 장소 인구·예측·날씨·도로·상권·주차 1회 수집 |
+
+GitHub 예약 실행(cron)은 지연·누락이 잦아서 수집 간격을 직접 관리하는 루프 방식을 쓴다. `collect_loop.yml`의 2시간 간격 예약은 루프가 끊겼을 때 다시 깨우는 보조 장치다. 루프를 멈추려면 Actions 탭에서 실행 중인 루프를 Cancel 한다.
 
 ### 감시
 

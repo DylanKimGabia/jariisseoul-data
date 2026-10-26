@@ -1,9 +1,7 @@
-name: "주차장 실시간 수집 (5분마다)"
+name: "주차장 실시간 수집 (수동 1회)"
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"    # 5분마다 (GitHub 사정으로 몇 분씩 밀릴 수 있음)
-  workflow_dispatch:          # Actions 탭에서 수동 실행용
+  workflow_dispatch:   # 수동 실행 전용. 자동 수집은 collect_loop.yml이 담당
 
 permissions:
   contents: write

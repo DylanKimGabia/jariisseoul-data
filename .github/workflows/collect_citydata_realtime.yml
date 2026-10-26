@@ -1,9 +1,7 @@
-name: "도시데이터 실시간 수집 (10분마다)"
+name: "도시데이터 실시간 수집 (수동 1회)"
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"   # 121개 장소 호출에 1~2분 걸려서 10분 간격
-  workflow_dispatch:
+  workflow_dispatch:   # 수동 실행 전용. 자동 수집은 collect_loop.yml이 담당
 
 permissions:
   contents: write
