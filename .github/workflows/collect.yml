@@ -2,7 +2,7 @@ name: collect-parking
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # 10분마다 (GitHub 사정으로 몇 분씩 밀릴 수 있음)
+    - cron: "*/5 * * * *"   # 10분마다 (GitHub 사정으로 몇 분씩 밀릴 수 있음)
   workflow_dispatch:          # Actions 탭에서 수동 실행용
 
 permissions:
