@@ -1,0 +1,42 @@
+name: "도시데이터 구조 탐색 (1회용)"
+
+on:
+  workflow_dispatch:   # 수동 실행 전용 (한 번만 돌리면 됨)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-parking   # 수집기와 동시에 커밋하지 않도록 같은 그룹 사용
+  cancel-in-progress: false
+
+jobs:
+  explore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: Explore
+        env:
+          SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
+        run: python scripts/explore_citydata_once.py
+
+      - name: Commit
+        run: |
+          git config user.name  "parking-bot"
+          git config user.email "parking-bot@users.noreply.github.com"
+          git add data/explore
+          git diff --cached --quiet && exit 0
+          git commit -m "explore: citydata $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')"
+          for i in 1 2 3; do
+            git pull --rebase && git push && exit 0
+            sleep 5
+          done
+          exit 1

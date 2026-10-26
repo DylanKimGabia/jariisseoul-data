@@ -1,8 +1,8 @@
-name: collect-parking
+name: "주차장 실시간 수집 (5분마다)"
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # 10분마다 (GitHub 사정으로 몇 분씩 밀릴 수 있음)
+    - cron: "*/5 * * * *"    # 5분마다 (GitHub 사정으로 몇 분씩 밀릴 수 있음)
   workflow_dispatch:          # Actions 탭에서 수동 실행용
 
 permissions:
@@ -28,7 +28,7 @@ jobs:
       - name: Collect
         env:
           SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
-        run: python collect.py || echo "collect failed (기록은 data/log.csv)"
+        run: python scripts/collect_parking_realtime.py || echo "collect failed (기록은 data/log.csv)"
 
       - name: Commit
         run: |
