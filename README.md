@@ -22,6 +22,14 @@
 | `scripts/collect_parking_realtime.py` | `collect_parking_realtime.yml` | 시영주차장 122곳 실시간 주차대수, 5분마다 |
 | `scripts/collect_citydata_realtime.py` | `collect_citydata_realtime.yml` | 도시데이터 121개 장소 인구·예측·날씨·도로·상권·주차, 10분마다 |
 
+### 감시
+
+| 코드 | 실행 설정 | 하는 일 |
+|---|---|---|
+| `scripts/check_collection_health.py` | `check_collection_health.yml` | 1시간마다 두 수집기 로그 점검. 마지막 기록이 오래됐거나(주차장 45분, 도시데이터 60분) 최근 오류가 많으면 실패 처리 |
+
+수집이나 감시가 실패하면 GitHub가 계정 메일로 알림을 보낸다. 수집 실패 시에도 로그는 커밋된다.
+
 ### 한 번만 실행하는 작업 (Actions 탭에서 수동 실행)
 
 | 코드 | 실행 설정 | 하는 일 |

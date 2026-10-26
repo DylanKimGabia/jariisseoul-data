@@ -26,9 +26,11 @@ jobs:
       - run: pip install requests
 
       - name: Collect
+        id: collect
+        continue-on-error: true   # 실패해도 기록은 커밋하고, 마지막에 실패로 표시
         env:
           SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
-        run: python scripts/collect_citydata_realtime.py || echo "collect failed (기록은 data/citydata/log.csv)"
+        run: python scripts/collect_citydata_realtime.py
 
       - name: Commit
         run: |
@@ -41,4 +43,11 @@ jobs:
             git pull --rebase && git push && exit 0
             sleep $((i * 5))
           done
+          exit 1
+
+      - name: Mark failure (GitHub 실패 알림 메일 발송용)
+        if: steps.collect.outcome == 'failure'
+        run: |
+          echo "수집 실패. data/citydata/log.csv 마지막 줄을 확인하세요."
+          tail -3 data/citydata/log.csv || true
           exit 1

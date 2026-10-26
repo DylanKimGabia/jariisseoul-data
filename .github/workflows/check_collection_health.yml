@@ -1,0 +1,23 @@
+name: "수집 상태 감시 (1시간마다)"
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # 매시 17분 (정각은 GitHub가 붐벼서 피함)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 문제가 있으면 실패로 끝나서 GitHub가 계정 메일로 알림을 보낸다
+      - run: python scripts/check_collection_health.py
