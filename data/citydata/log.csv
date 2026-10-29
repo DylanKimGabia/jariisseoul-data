@@ -351,3 +351,4 @@ collected_at,status,ok,fail,message
 2026-10-29 08:50:02,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=72 parking=61 
 2026-10-29 09:00:02,partial,120,1,population=120 forecast=1440 road=120 weather=3 commercial=75 parking=55 POI006:Expecting value: line 1 column 1 (char 0)
 2026-10-29 09:05:28,ok,121,0,population=121 forecast=1452 road=121 weather=0 commercial=40 parking=60 
+2026-10-29 09:15:02,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=76 parking=61 
