@@ -23,6 +23,8 @@ jobs:
     timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main   # 오래 대기했던 실행도 대기 시작 시점이 아닌 최신 상태로 시작
 
       - uses: actions/setup-python@v5
         with:
@@ -33,7 +35,10 @@ jobs:
       - name: Collect loop
         env:
           SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
-        run: bash scripts/run_collect_loop.sh
+        # 실행 중에 저장소가 최신으로 바뀌어도 루프 스크립트 자체는 흔들리지 않게 복사본으로 실행
+        run: |
+          cp scripts/run_collect_loop.sh "$RUNNER_TEMP/run_collect_loop.sh"
+          bash "$RUNNER_TEMP/run_collect_loop.sh"
 
       - name: Restart myself
         if: ${{ !cancelled() }}   # 직접 취소하면 멈춤
