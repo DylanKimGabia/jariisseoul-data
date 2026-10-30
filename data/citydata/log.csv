@@ -543,3 +543,4 @@ collected_at,status,ok,fail,message
 2026-10-30 19:05:04,ok,121,0,population=121 forecast=1452 road=121 weather=116 commercial=81 parking=60 
 2026-10-30 19:15:02,ok,121,0,population=121 forecast=1452 road=121 weather=116 commercial=81 parking=60 
 2026-10-30 19:25:02,ok,121,0,population=121 forecast=1452 road=121 weather=116 commercial=81 parking=61 
+2026-10-30 19:35:02,partial,112,7,population=112 forecast=1344 road=112 weather=107 commercial=77 parking=59 POI038:Expecting value: line 1 column 1 (char 0)|POI039:Expecting value: line 1 column 1 (char 0)|POI059:Expecting value: line 1 column 1 (char 0)|POI061:Expecting value: line 1 column 1 (char 0)|POI063:Expecting value: line 1 column 1 (char 0)|POI105:Expecting value: line 1 column 1 (char 0)|POI129부터 3곳:시간초과로 건너뜀
