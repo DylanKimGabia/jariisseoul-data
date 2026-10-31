@@ -694,3 +694,4 @@ collected_at,status,ok,fail,message
 2026-10-31 19:55:02,ok,121,0,population=121 forecast=1452 road=121 weather=116 commercial=79 parking=61 
 2026-10-31 20:05:01,ok,121,0,population=121 forecast=1452 road=121 weather=116 commercial=82 parking=60 
 2026-10-31 20:15:01,ok,121,0,population=121 forecast=1452 road=121 weather=116 commercial=80 parking=59 
+2026-10-31 20:25:01,ok,121,0,population=121 forecast=1452 road=121 weather=116 commercial=80 parking=62 
