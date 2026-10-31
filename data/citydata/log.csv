@@ -767,3 +767,4 @@ collected_at,status,ok,fail,message
 2026-11-01 07:55:02,ok,121,0,population=121 forecast=1452 road=121 weather=116 commercial=32 parking=60 
 2026-11-01 08:05:02,ok,121,0,population=121 forecast=1452 road=121 weather=116 commercial=35 parking=60 
 2026-11-01 08:15:03,ok,121,0,population=121 forecast=1452 road=121 weather=116 commercial=37 parking=61 
+2026-11-01 08:25:02,ok,121,0,population=121 forecast=1452 road=121 weather=116 commercial=42 parking=61 
