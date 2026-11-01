@@ -39,6 +39,7 @@ GitHub 예약 실행(cron)은 지연·누락이 잦아서 수집 간격을 직�
 |---|---|---|
 | `scripts/explore_citydata_once.py` | `explore_citydata_once.yml` | 도시데이터 응답 구조 확인 |
 | `scripts/build_parking_coords_once.py` | `build_parking_coords_once.yml` | 수집 대상 주차장 좌표 정리 |
+| `scripts/build_lot_area_map_once.py` | (로컬 실행) | 주차장 ↔ 도시데이터 장소 매핑표 생성 |
 
 ## 데이터 구조
 
@@ -59,6 +60,7 @@ GitHub 예약 실행(cron)은 지연·누락이 잦아서 수집 간격을 직�
 | `data/citydata/log.csv` | 도시데이터 수집 실행 기록 |
 | `data/reference/citydata_areas.csv` | 도시데이터 121개 장소 코드와 이름 |
 | `data/reference/parking_lots.csv` | 수집 대상 주차장 좌표 |
+| `data/reference/lot_area_map.csv` | 주차장(`PKLT_CD`)별 가까운 도시데이터 장소(`AREA_CD`) 3곳과 거리. `rank`=1이 가장 가까움, `within_2km`=0이면 주변 장소가 멂 |
 | `data/explore/` | 도시데이터 탐색 결과 (1회) |
 
 도시데이터는 기준시각(인구 `PPLTN_TIME`, 날씨 `WEATHER_TIME` 등)이 바뀐 경우에만 저장한다. 마지막 기준시각은 `data/citydata/_state.json`에 있다.
