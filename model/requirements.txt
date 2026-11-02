@@ -1,6 +1,8 @@
 pandas>=2.0
 numpy
+scipy
 scikit-learn
 matplotlib
 torch
 osmnx>=1.9
+streamlit>=1.30
