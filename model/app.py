@@ -21,7 +21,7 @@ import torch
 import torch.nn as nn
 
 ART = Path(__file__).parent / "artifacts"
-st.set_page_config(page_title="자리있서울", page_icon="🅿️", layout="wide")
+st.set_page_config(page_title="자리있서울", layout="wide")
 
 # 자주 쓰는 장소 (지오코딩 없이 바로 쓰기 위한 좌표)
 PLACES = {
@@ -266,7 +266,7 @@ def recommend(o, d, t_idx, stay_min, near_km, n_near, use_pnr):
         arr = t_idx + steps
         actual = (1 - OCC[arr, n]) * CAP[n] if arr < T and not np.isnan(OCC[arr, n]) else np.nan
         rows.append({
-            "n": n, "주차장": NAMES[n] + (" ⭐가장 가까움" if n == nearest else ""),
+            "n": n, "주차장": NAMES[n] + (" (가장 가까움)" if n == nearest else ""),
             "구분": "환승(P&R)" if pnr[n] else "목적지 주변",
             "도착": (TIMES[t_idx] + pd.Timedelta(minutes=drive)).strftime("%H:%M"),
             "지금 빈자리": int(round((1 - np.nan_to_num(OCC[t_idx, n])) * CAP[n])),
@@ -304,7 +304,7 @@ def map_html(o, d, df, routes, sel, seconds=10):
  .bar button{padding:6px 14px;border:0;border-radius:8px;background:#2563eb;color:#fff;cursor:pointer}
  .emoji{font-size:26px;line-height:26px;text-align:center}
 </style></head><body>
-<div class="bar"><button id="play">▶ 다시 재생</button><span id="status"></span></div>
+<div class="bar"><button id="play">다시 재생</button><span id="status"></span></div>
 <div id="map"></div>
 <script>
 const D = __DATA__;
@@ -316,8 +316,8 @@ D.lots.forEach(l=>{
      fillColor:color(l.prob),fillOpacity:.9}).addTo(map)
    .bindPopup(`<b>${l.name}</b><br>${l.kind} · ${l.arr} 도착<br>예상 빈자리 <b>${l.free}</b> / ${l.cap}<br>자리 있을 확률 <b>${Math.round(l.prob*100)}%</b><br>신뢰도 ${l.conf}`);
 });
-L.marker(D.o,{icon:L.divIcon({className:'emoji',html:'🏠',iconSize:[28,28]})}).addTo(map).bindTooltip('출발');
-L.marker(D.d,{icon:L.divIcon({className:'emoji',html:'🏁',iconSize:[28,28]})}).addTo(map).bindTooltip('목적지');
+L.circleMarker(D.o,{radius:8,color:'#fff',weight:2,fillColor:'#2563eb',fillOpacity:1}).addTo(map).bindTooltip('출발',{permanent:true,direction:'top'});
+L.circleMarker(D.d,{radius:8,color:'#fff',weight:2,fillColor:'#111827',fillOpacity:1}).addTo(map).bindTooltip('목적지',{permanent:true,direction:'top'});
 L.polyline(D.drive,{color:'#2563eb',weight:5,opacity:.35}).addTo(map);
 L.polyline(D.after,{color:'#6b7280',weight:3,dashArray:'6 8',opacity:.6}).addTo(map);
 map.fitBounds(L.latLngBounds(D.drive.concat(D.after).concat(D.lots.map(l=>[l.lat,l.lng]))).pad(0.15));
@@ -327,27 +327,25 @@ function at(path,c,t){const target=t*c[c.length-1];let i=1;while(i<c.length-1&&c
   const seg=c[i]-c[i-1]||1, r=(target-c[i-1])/seg;
   return [path[i-1][0]+(path[i][0]-path[i-1][0])*r, path[i-1][1]+(path[i][1]-path[i-1][1])*r];}
 const cD=cum(D.drive), cA=cum(D.after);
-const car=L.marker(D.o,{icon:L.divIcon({className:'emoji',html:'🚗',iconSize:[28,28]}),zIndexOffset:1000}).addTo(map);
+const PIN=L.divIcon({className:'emoji',html:'📍',iconSize:[28,28],iconAnchor:[14,26]});
+const car=L.marker(D.o,{icon:PIN,zIndexOffset:1000}).addTo(map);
 const trail=L.polyline([],{color:'#2563eb',weight:6}).addTo(map);
 const st=document.getElementById('status');
 let raf=null;
 function play(){
   cancelAnimationFrame(raf); trail.setLatLngs([]);
   const total=D.sec*1000, driveMs=total*0.8, start=performance.now();
-  const walkIcon=D.afterKind.startsWith('지하철')?'🚇':'🚶';
-  car.setIcon(L.divIcon({className:'emoji',html:'🚗',iconSize:[28,28]}));
   function step(now){
     const t=Math.min((now-start)/total,1);
     if(now-start<driveMs){
       const p=at(D.drive,cD,(now-start)/driveMs); car.setLatLng(p); trail.addLatLng(p);
-      st.textContent='🚗 주차장으로 이동 중… '+D.label;
+      st.textContent='주차장으로 이동 중 · '+D.label;
     } else {
-      car.setIcon(L.divIcon({className:'emoji',html:walkIcon,iconSize:[28,28]}));
       car.setLatLng(at(D.after,cA,(now-start-driveMs)/(total-driveMs)));
-      st.textContent=walkIcon+' 주차 후 '+D.afterKind+'로 목적지 이동 중…';
+      st.textContent='주차 후 '+D.afterKind+'로 목적지 이동 중';
     }
     if(t<1) raf=requestAnimationFrame(step);
-    else { car.setIcon(L.divIcon({className:'emoji',html:'✅',iconSize:[28,28]})); st.textContent='✅ 도착! '+D.label; }
+    else { st.textContent='도착 · '+D.label; }
   }
   raf=requestAnimationFrame(step);
 }
@@ -357,7 +355,7 @@ play();
 
 
 # ---------------------------------------------------------------- 화면
-st.title("🅿️ 자리있서울")
+st.title("자리있서울")
 st.caption("도착할 때 자리가 있을지 미리 알려주는 서울 공영주차장 추천 · 서울 열린데이터광장 실시간 데이터 기반")
 
 with st.sidebar:
@@ -383,7 +381,7 @@ with st.sidebar:
     stay = st.slider("주차 시간(분)", 30, 480, 120, 30)
     near_km = st.slider("목적지 주변 반경(km)", 0.5, 5.0, 2.0, 0.5)
     use_pnr = st.checkbox("가는 길 환승주차장(P&R)도 추천", True)
-    go = st.button("🔍 자리 찾기", type="primary", use_container_width=True)
+    go = st.button("자리 찾기", type="primary", use_container_width=True)
 
 st.write(f"**기준 시각** {TIMES[t_idx]:%Y-%m-%d %H:%M} · 도로망: {'OpenStreetMap 실제 도로' if GRAPH is not None else '직선 근사 (도로망 파일 없음)'}")
 
