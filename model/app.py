@@ -83,6 +83,9 @@ def load_graph():
         return None, None, None
 
 
+if not (ART / "app_bundle.pkl").exists():     # 파일이 없을 때는 캐시하지 않음
+    st.error("artifacts/app_bundle.pkl 이 없습니다. 노트북 01_mvp_seq2seq.ipynb의 마지막 셀(11번)까지 실행하세요.")
+    st.stop()
 B, MODEL = load_bundle()
 if B is None:
     st.error("artifacts/app_bundle.pkl 이 없습니다. 노트북 01_mvp_seq2seq.ipynb의 마지막 셀(11번)까지 실행하세요.")
