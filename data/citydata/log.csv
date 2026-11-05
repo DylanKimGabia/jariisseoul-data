@@ -1422,3 +1422,4 @@ collected_at,status,ok,fail,message
 2026-11-05 19:30:02,ok,121,0,population=121 forecast=1444 road=121 weather=119 commercial=80 parking=62 
 2026-11-05 19:40:01,ok,121,0,population=121 forecast=1444 road=121 weather=117 commercial=82 parking=60 
 2026-11-05 19:50:02,ok,121,0,population=121 forecast=1444 road=121 weather=119 commercial=74 parking=62 
+2026-11-05 20:00:02,ok,121,0,population=121 forecast=1444 road=121 weather=118 commercial=80 parking=62 
