@@ -1996,3 +1996,4 @@ collected_at,status,ok,fail,message
 2026-11-09 17:55:26,ok,121,0,population=119 forecast=1428 road=121 weather=4 commercial=79 parking=62 
 2026-11-09 18:05:02,ok,121,0,population=119 forecast=1428 road=121 weather=119 commercial=80 parking=62 
 2026-11-09 18:15:02,ok,121,0,population=121 forecast=1448 road=121 weather=119 commercial=79 parking=61 
+2026-11-09 18:25:02,ok,121,0,population=121 forecast=1448 road=121 weather=119 commercial=80 parking=62 
