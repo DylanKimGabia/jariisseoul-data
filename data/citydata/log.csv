@@ -1983,3 +1983,4 @@ collected_at,status,ok,fail,message
 2026-11-09 15:50:02,ok,121,0,population=121 forecast=1450 road=121 weather=119 commercial=78 parking=62 
 2026-11-09 16:00:02,ok,121,0,population=121 forecast=1450 road=121 weather=119 commercial=78 parking=62 
 2026-11-09 16:10:03,ok,121,0,population=121 forecast=1450 road=121 weather=119 commercial=79 parking=62 
+2026-11-09 16:20:02,ok,121,0,population=121 forecast=1450 road=121 weather=118 commercial=78 parking=62 
