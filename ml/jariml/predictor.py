@@ -6,7 +6,9 @@
     p.predict(recent, arrival="2026-11-14 08:30")        # 주차장별 도착 시점 빈자리와 확률
     p.deadline(recent, min_prob=0.8)                     # 확률 80% 이상으로 자리 있는 마지막 도착 시각
 
-recent 형태 (긴 표): t(5분 단위 시각), PKLT_CD, cnt(주차 대수), cap(총면). 지금 시각 기준 최소 65분치.
+recent 형태 (긴 표): t(5분 단위 시각), PKLT_CD, cnt(주차 대수), cap(총면).
+필요한 길이는 엔진마다 다르다 (Predictor.history_minutes). 넉넉히 최근 하루치를 넘기면 된다.
+엔진이 바뀌어도(ML → DL) 이 클래스의 입력과 출력은 같다.
 """
 from pathlib import Path
 
@@ -16,23 +18,25 @@ import pandas as pd
 from . import registry
 from .config import load_config
 from .data import load_live, resolve_data_dir
-from .features import build_rows
-from .model import predict_occ
+from .engines import INTERFACE_VERSION
 from .preprocess import is_offday
 from .probability import prob_free_at_least
 
 STEP = pd.Timedelta(minutes=5)
-NEED = 13                       # 지금 + 60분 전까지 13칸
 
 
 class Predictor:
     def __init__(self, artifact: dict, metrics: dict | None = None):
+        if artifact.get("interface_version") != INTERFACE_VERSION:
+            raise ValueError(f"엔진 규약 버전이 다르다: 모델 {artifact.get('interface_version')} / 코드 {INTERFACE_VERSION}. 다시 학습한다.")
         self.a, self.metrics = artifact, metrics or {}
+        self.engine = artifact["engine"]
         self.cfg = artifact["config"]
         self.lots = artifact["lots"]
         self.hol = self.cfg["preprocess"]["holidays"]
         self.k = self.cfg["target"]["free_threshold"]
         self.max_h = self.cfg["target"]["max_horizon_steps"]
+        self.history_minutes = self.engine.history_steps * 5     # 예측에 필요한 최근 기록 길이
 
     @classmethod
     def load(cls, models_dir=None, version=None) -> "Predictor":
@@ -52,7 +56,7 @@ class Predictor:
         r = recent[recent.PKLT_CD.isin(self.lots)].copy()
         r["t"] = pd.to_datetime(r.t).dt.floor("5min")
         now = pd.Timestamp(now).floor("5min") if now is not None else r.t.max()
-        idx = pd.date_range(now - STEP * (NEED - 1), now, freq="5min")
+        idx = pd.date_range(now - STEP * (self.engine.history_steps - 1), now, freq="5min")
         wide = lambda c: r.pivot_table(index="t", columns="PKLT_CD", values=c, aggfunc="last").reindex(idx).reindex(columns=self.lots)
         cnt, cap = wide("cnt"), wide("cap")
         cap = cap.ffill().bfill().fillna(self.a["lot_master"].TPKCT.reindex(self.lots))
@@ -65,10 +69,11 @@ class Predictor:
         out = []
         model_steps = [h for h in steps if 1 <= h <= self.max_h]
         if model_steps:
-            X = build_rows(occ, cap, self.a["profile"], self.hol, model_steps, origins=[now], with_target=False)
-            X["pred"] = predict_occ(self.a["model"], X)
-            X["method"] = "모델"
-            out.append(X[["PKLT_CD", "h", "occ", "cap", "pred", "method"]])
+            r = self.engine.predict(occ, cap, [now], model_steps)
+            r["occ"] = r.PKLT_CD.map(occ.iloc[-1])
+            r["cap"] = r.PKLT_CD.map(cap.iloc[-1])
+            r["method"] = "모델"
+            out.append(r[["PKLT_CD", "h", "occ", "cap", "pred", "method"]])
         far = [h for h in steps if h > self.max_h]
         if far:
             prof = self.a["profile"]

@@ -1,4 +1,4 @@
-"""빈자리 예측 모델: Gradient Boosting으로 지금 대비 점유율 변화량을 맞힌다."""
+"""gbm 엔진의 학습 도구: Gradient Boosting으로 지금 대비 점유율 변화량을 맞힌다."""
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
@@ -27,8 +27,3 @@ def fit_with_val(tr: pd.DataFrame, va: pd.DataFrame, p: dict):
     if best < len(curve):                                 # 과적합 전 지점으로 다시 학습
         m = make_model(p, best).fit(tr[FEATURES], tr.y - tr.occ)
     return m, best, curve
-
-
-def predict_occ(model, X: pd.DataFrame) -> np.ndarray:
-    """예측 점유율 (0~1)."""
-    return np.clip(X.occ.to_numpy() + model.predict(X[FEATURES]), 0, 1)

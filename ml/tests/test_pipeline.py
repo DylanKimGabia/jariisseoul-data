@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 from jariml import Predictor, load_config
+from jariml.engines import ENGINES
 from jariml.fee import parking_fee
 from jariml.train import run
 
@@ -77,6 +78,20 @@ def test_predictor_outputs(trained, fake_data):
     assert (r.pred_free >= 0).all() and (r.pred_free <= r.cap).all()
     assert (p.predict(recent, now + pd.Timedelta("5h")).method == "평소 패턴(2시간 초과)").all()
     assert len(p.deadline(recent)) == len(LOTS)
+
+
+@pytest.mark.parametrize("name", list(ENGINES))
+def test_engine_contract(name, trained):
+    """엔진 규약: 등록된 모든 엔진이 같은 입력을 받아 같은 형태의 출력을 낸다."""
+    cfg, out = trained
+    occ, cap, sp = out["tables"].occ, out["tables"].cap, out["split"]
+    eng = ENGINES[name](cfg)
+    eng.fit(occ, cap, sp)
+    pred = eng.predict(occ, cap, sp.test[:5], [1, 12])
+    assert list(pred.columns) == ["t", "PKLT_CD", "h", "pred"]
+    assert set(pred.h) == {1, 12} and set(pred.PKLT_CD) == set(occ.columns)
+    assert pred.pred.between(0, 1).all()
+    assert eng.history_steps >= 1
 
 
 def test_fee():

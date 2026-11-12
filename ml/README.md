@@ -23,8 +23,10 @@ uvicorn api.app:app --port 8000             # 예측 API → http://localhost:80
 | `jariml/data.py` | 수집 데이터 읽기 (로컬 또는 GitHub) |
 | `jariml/preprocess.py` | 전처리: 5분 격자, 결측 보간, 제외 기준, 표 3개 (`lot_master`, `fee_rule`, 점유율) |
 | `jariml/split.py` | 시간 순서 학습 / 검증 / 평가 분할 |
-| `jariml/features.py` | 모델 입력 16개. 학습과 예측이 같은 함수를 쓴다 |
-| `jariml/model.py` | Gradient Boosting 학습, 검증 기간으로 반복 횟수 결정 |
+| `jariml/features.py` | gbm 엔진 입력 16개, 평소 곡선. 학습과 예측이 같은 함수를 쓴다 |
+| `jariml/engines/base.py` | **엔진 규약**: 모든 예측 모델(ML, DL)이 따르는 틀 |
+| `jariml/engines/gbm.py` | 엔진 1호: Gradient Boosting, 기본 설정값 |
+| `jariml/model.py` | gbm 엔진의 학습 도구 (검증 기간으로 반복 횟수 결정) |
 | `jariml/probability.py` | 검증 기간 오차 분포로 "빈자리 K대 이상" 확률 계산 |
 | `jariml/evaluate.py` | MSE / RMSE / MAE / MSLE (빈자리 대수), 기준선 비교, 확률 검증 |
 | `jariml/registry.py` | 모델 저장, 운영 버전(`models/LATEST`) 관리, 더 좋을 때만 교체 |
@@ -56,6 +58,40 @@ data/live, static, reference (5분마다 수집)
 - 평소 곡선(주차장 × 평일/휴일 × 시각 평균)은 평가할 때 학습 기간으로만 만든다.
 - 확률용 오차 분포는 학습에 쓰지 않은 검증 기간에서 모은다.
 
+## 엔진 규약 (모델 교체 방식)
+
+예측 모델은 **엔진**으로 갈아 끼운다. 지금 운영 엔진은 `gbm`(기본 ML, 기본 설정값)이고, 이후 딥러닝 엔진으로 바꿀 수 있다.
+학습 순서, 평가 기간과 지표, 확률 계산, 저장 형식, `Predictor`와 API의 입력·출력은 엔진과 상관없이 같다.
+그래서 **엔진이 바뀌어도 백엔드 코드는 바꿀 필요가 없고, `models/LATEST`만 바뀐다.**
+
+모든 엔진이 구현하는 것 (`jariml/engines/base.py`)
+
+| 항목 | 내용 |
+|---|---|
+| `name` | 엔진 이름 (`config.yaml`의 `model.engine` 값) |
+| `history_steps` | 예측할 때 필요한 최근 기록 길이 (5분 칸, 지금 포함) |
+| `fit(occ, cap, split)` | 학습 기간으로 학습, 검증 기간으로 조정. 평가 기간은 보지 않는다 |
+| `predict(occ, cap, origins, horizons)` | 출력 컬럼 `t, PKLT_CD, h, pred` (pred = t + h 시점 점유율 0~1) |
+| `fit_full(occ, cap)` | 같은 설정으로 전체 기간 재학습 (운영용) |
+
+`occ`, `cap`은 시각(5분 간격) × 주차장 코드 표다. 시계열을 통째로 쓰는 딥러닝도, 직접 만든 입력을 쓰는 ML도 같은 표를 받는다.
+
+새 엔진 추가 순서
+1. `jariml/engines/`에 `Engine`을 상속한 클래스를 만든다 (예: `gru.py`의 `GRUEngine`, `name = "gru"`, `history_steps = 24`).
+2. `jariml/engines/__init__.py`의 `ENGINES`에 등록한다.
+3. `python -m pytest -q`: 규약 테스트(`test_engine_contract`)가 등록된 모든 엔진을 자동으로 검사한다.
+4. `config.yaml`의 `model.engine`을 바꾸고 `python -m jariml.train`. 평가 기간 1시간 뒤 빈자리 MAE가 운영 엔진보다 작을 때만 운영 모델이 바뀐다.
+
+```python
+class GRUEngine(Engine):
+    name, history_steps = "gru", 24
+    def fit(self, occ, cap, split): ...           # split.train으로 학습, split.val로 조기 종료
+    def predict(self, occ, cap, origins, horizons):
+        ...                                       # origins마다 직전 history_steps칸을 입력으로
+        return pd.DataFrame({"t": ..., "PKLT_CD": ..., "h": ..., "pred": ...})
+    def fit_full(self, occ, cap): ...
+```
+
 ## 서비스 연동 (백엔드)
 
 ### 파이썬에서 직접
@@ -68,7 +104,7 @@ p.predict(recent, arrival="2026-11-14 08:30")
 p.deadline(recent, min_prob=0.8)
 ```
 
-**입력 `recent`** (긴 표, 지금 기준 최소 65분치, 5분 간격)
+**입력 `recent`** (긴 표, 5분 간격. 필요한 길이는 `p.history_minutes`분이고 엔진마다 다르니, 최근 하루치를 넘기면 안전하다)
 
 | 컬럼 | 형식 | 내용 |
 |---|---|---|
@@ -115,6 +151,7 @@ p.deadline(recent, min_prob=0.8)
 ## 모델 요약
 
 - 대상: 시영주차장 중 실시간 연계, 승용차 가능, 20면 이상, 센서 정상인 곳 (2026-11-13 기준 55곳)
+- 엔진: `gbm` (scikit-learn HistGradientBoosting, 기본 설정값, 검증 기간으로 반복 횟수만 결정)
 - 예측: 5분~2시간 뒤 점유율. 한 모델이 예측 거리 `h`를 입력으로 받는다. 2시간을 넘으면 평소 곡선 값을 쓴다
   (EDA에서 평소와의 차이가 약 4시간 뒤 사라져, 먼 미래는 평소 패턴이 가장 정직한 추정이다)
 - 입력: 지금 점유율, 최근 5/15/30/60분 변화량, 시각, 요일, 휴일 여부, 총면, 평소 곡선(지금 / 도착 시각), 평소와의 차이
