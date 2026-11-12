@@ -1,0 +1,11 @@
+# 학습/예측 (Python 3.10 이상)
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+pyyaml>=6.0
+joblib>=1.3
+# API
+fastapi>=0.110
+uvicorn>=0.29
+# 테스트
+pytest>=7.0

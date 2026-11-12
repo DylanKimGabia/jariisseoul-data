@@ -1,0 +1,43 @@
+name: 모델 재학습 (수동)
+
+# 새로 쌓인 데이터로 다시 학습하고, 평가 기간 1시간 뒤 빈자리 오차가 운영 모델보다 작을 때만 ml/models/LATEST를 바꾼다.
+# 정기 실행이 필요하면 아래 schedule 두 줄의 주석을 푼다 (매주 월요일 04:23 KST).
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "23 19 * * 0"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: retrain-model
+  cancel-in-progress: false
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r ml/requirements.txt
+      - name: 테스트
+        working-directory: ml
+        run: python -m pytest -q
+      - name: 학습과 평가
+        working-directory: ml
+        run: python -m jariml.train
+      - name: 결과 올리기
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ml/models
+          git diff --cached --quiet && exit 0
+          git commit -m "모델 재학습 $(cat ml/models/LATEST)"
+          for i in 1 2 3 4 5; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*10)); done
+          exit 1
