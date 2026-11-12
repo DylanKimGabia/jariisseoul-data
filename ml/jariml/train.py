@@ -53,10 +53,13 @@ def run(cfg: dict, refresh_data=False, refit_all=True, save=True, promote=True) 
     log(f"평가 표: 검증 {len(E_val):,}행 / 평가 {len(E_test):,}행")
 
     residuals = fit_residuals(E_val.h.to_numpy(), E_val.pred.to_numpy(), E_val.y.to_numpy(), cfg["probability"])
-    lot_mae = by_lot(E_val)                                          # 주차장별 신뢰도 (검증 기간 1시간 뒤 오차)
+    lot_mae = by_lot(E_val)                                          # 주차장별 신뢰도: 검증 기간 1시간 뒤 오차
+    lot_pct = lot_mae / tables.lot_master.TPKCT.reindex(lot_mae.index) * 100
     c = cfg["confidence"]
-    confidence = pd.DataFrame({"val_mae_free_1h": lot_mae,
-                               "label": np.select([lot_mae <= c["high_max_mae"], lot_mae <= c["mid_max_mae"]], ["높음", "보통"], "낮음")})
+    confidence = pd.DataFrame({"val_mae_free_1h": lot_mae, "val_err_pct_1h": lot_pct,
+                               "label": np.select([lot_pct <= c["high_max_err_pct"], lot_pct <= c["mid_max_err_pct"]],
+                                                  ["높음", "보통"], "낮음")})
+    log("신뢰도: " + str(confidence.label.value_counts().to_dict()))
 
     table = compare(E_test)
     prob_summary, calib = probability_check(E_test, residuals, cfg["target"]["free_threshold"])

@@ -33,7 +33,7 @@ model:
   # 사용할 엔진 (jariml/engines). 엔진을 바꿔도 평가 방식, 저장 형식, 예측 API는 같다.
   engine: gbm
   # 아래는 gbm 엔진 설정: sklearn HistGradientBoosting 기본값 수준. 추가 설치 없이 결측값을 그대로 처리한다.
-  max_iter: 400
+  max_iter: 800               # 상한. 실제 반복 횟수는 검증 기간 오차가 가장 작은 지점으로 정한다
   learning_rate: 0.05
   max_leaf_nodes: 31
   min_samples_leaf: 100
@@ -46,9 +46,10 @@ probability:
   occ_bins: [0.5, 0.8, 0.9, 1.01]           # 예측 점유율 구간 (만차 근처일수록 오차 분포가 다름)
 
 confidence:
-  # 주차장별 검증 기간 1시간 뒤 오차(대수) 기준 신뢰도 표시
-  high_max_mae: 3
-  mid_max_mae: 6
+  # 주차장별 신뢰도: 검증 기간 1시간 뒤 빈자리 오차를 총면 대비 %로 본다.
+  # 대수로 보면 큰 주차장이 늘 '낮음'이 되므로(1,312면 중 8대 = 0.6%) 비율을 쓴다.
+  high_max_err_pct: 2         # 총면의 2% 이하면 높음
+  mid_max_err_pct: 4          # 4% 이하면 보통, 그보다 크면 낮음
 
 registry:
   dir: models                 # models/<버전>/ 에 저장, models/LATEST 에 운영 버전 이름
