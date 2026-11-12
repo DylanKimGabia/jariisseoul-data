@@ -61,6 +61,7 @@ GitHub 예약 실행(cron)은 지연·누락이 잦아서 수집 간격을 직�
 | `data/reference/citydata_areas.csv` | 도시데이터 121개 장소 코드와 이름 |
 | `data/reference/parking_lots.csv` | 수집 대상 주차장 좌표 |
 | `data/reference/lot_area_map.csv` | 주차장(`PKLT_CD`)별 가까운 도시데이터 장소(`AREA_CD`) 3곳과 거리. `rank`=1이 가장 가까움, `within_2km`=0이면 주변 장소가 멂 |
+| `data/reference/pnr_lots.csv` | 서울시설공단 환승주차 감면 대상 주차장 21곳(`PKLT_CD`), 감면율(`discount_rate`), 출처(`source`)와 확인일(`checked_at`). API에 없는 정보라 공단 안내 페이지를 보고 직접 정리했다. 목록이 바뀌면 이 파일만 고친다 |
 | `data/explore/` | 도시데이터 탐색 결과 (1회) |
 
 도시데이터는 기준시각(인구 `PPLTN_TIME`, 날씨 `WEATHER_TIME` 등)이 바뀐 경우에만 저장한다. 마지막 기준시각은 `data/citydata/_state.json`에 있다.
