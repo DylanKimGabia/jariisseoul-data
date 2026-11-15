@@ -2818,3 +2818,4 @@ collected_at,status,ok,fail,message
 2026-11-15 09:00:03,ok,121,0,population=121 forecast=1452 road=121 weather=118 commercial=48 parking=61 
 2026-11-15 09:10:03,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=56 parking=61 
 2026-11-15 09:20:01,ok,121,0,population=121 forecast=1452 road=121 weather=118 commercial=53 parking=60 
+2026-11-15 09:30:01,ok,121,0,population=121 forecast=1452 road=121 weather=118 commercial=59 parking=62 
