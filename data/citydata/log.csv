@@ -3085,3 +3085,4 @@ collected_at,status,ok,fail,message
 2026-11-17 05:30:02,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=18 parking=62 
 2026-11-17 05:40:03,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=20 parking=60 
 2026-11-17 05:50:03,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=15 parking=62 
+2026-11-17 06:00:03,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=19 parking=62 
