@@ -10,6 +10,7 @@
 
 TMAP 경로 호출은 검색 1번에 최대 6건 (Free 하루 1,000건 → 약 160번 검색).
 """
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -37,6 +38,37 @@ def kst_now():
     return pd.Timestamp.now(tz="Asia/Seoul").tz_localize(None)
 
 
+def parse_depart(x, now=None):
+    """출발 시각 입력 해석. 시각만 쓰면 오늘 그 시각이고, 이미 지났으면 내일로 본다.
+    예: "0830", "8:30", "08:30", "내일 0830", "11/21 08:30", "2026-11-21 08:30". 비우면 None(지금)."""
+    if x is None or isinstance(x, pd.Timestamp) or not isinstance(x, str):
+        return None if x is None else pd.Timestamp(x)
+    s, now = x.strip(), now or kst_now()
+    if not s or s == "지금":
+        return None
+    tomorrow = s.startswith("내일")
+    s = s.replace("내일", "").strip()
+    m = re.fullmatch(r"(\d{1,2}):?(\d{2})", s)
+    if m:
+        h, mi = int(m[1]), int(m[2])
+        if h > 23 or mi > 59:
+            raise ValueError(f"출발 시각 '{x}'를 이해하지 못했다. 예: 0830, 8:30, 내일 0830, 11/21 08:30")
+        t = now.normalize() + pd.Timedelta(hours=h, minutes=mi)
+        if tomorrow or t < now - pd.Timedelta(minutes=10):
+            t += pd.Timedelta(days=1)
+        return t
+    m = re.fullmatch(r"(\d{1,2})[/.-](\d{1,2})\s+(\d{1,2}):?(\d{2})", s)
+    if m:
+        return pd.Timestamp(year=now.year, month=int(m[1]), day=int(m[2]), hour=int(m[3]), minute=int(m[4]))
+    try:
+        t = pd.Timestamp(s)
+    except ValueError:
+        t = None
+    if t is None or not (now.year - 1 <= t.year <= now.year + 1):
+        raise ValueError(f"출발 시각 '{x}'를 이해하지 못했다. 예: 0830, 8:30, 내일 0830, 11/21 08:30")
+    return t
+
+
 def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=None, k=5, radius_m=1000,
               max_radius_m=2000, stay_min=120, with_pnr=True) -> dict:
     """origin, dest: 장소 이름(텍스트) 또는 (위도, 경도). depart: 출발 시각 (없으면 지금).
@@ -45,7 +77,7 @@ def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=
     tm = tmap or Tmap(live=False)
     calls0 = dict(tm.calls)
     o, d = tm.place(origin), tm.place(dest)
-    depart = pd.Timestamp(depart) if depart is not None else kst_now()
+    depart = parse_depart(depart) or kst_now()
     data_now = pd.to_datetime(recent.t).max().floor("5min")
 
     main = tm.car(o, d, depart)                                         # ② 출발지 → 목적지
