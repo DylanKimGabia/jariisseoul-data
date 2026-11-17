@@ -21,6 +21,7 @@ from jariml import Predictor
 from jariml.recommend import recommend as run_recommend
 from jariml.tmap import Tmap, find_key
 from jariml.tmapview import tmap_html
+from jariml.agent import understand
 from jariml.voice import parse_voice
 
 app = FastAPI(title="자리있서울 빈자리 예측 API")
@@ -114,6 +115,44 @@ def voice(text: str = Query(..., description="음성 인식 문장 (예: 강남�
             "meta": json.loads(json.dumps(r["meta"], default=str, ensure_ascii=False)),
             "results": records(r["table"]),
             "map_html": tmap_html(r, tmap.key) if (with_map and tmap.key) else None}
+
+
+class AgentRequest(BaseModel):
+    text: str                               # 음성 인식 문장
+    history: list[dict] = []                # 이전 대화 [{"role": "user"|"assistant", "content": ...}] (응답의 history를 그대로 다시 보낸다)
+    lat: float | None = None                # 현재 위치 (출발지를 말하지 않았을 때)
+    lon: float | None = None
+    stay_min: int = 120
+
+
+@app.post("/agent")
+def agent(req: AgentRequest):
+    """AI 에이전트: 아무렇게나 말한 문장 → GPT가 입력값으로 해석 → 추천. 목적지를 모르면 question으로 되묻는다.
+    GPT를 못 쓰면 규칙 해석기로 대신한다 (query.source)."""
+    q = understand(req.text, req.history)
+    history = req.history + [{"role": "user", "content": req.text},
+                             {"role": "assistant", "content": json.dumps({k: q[k] for k in ("origin", "dest", "depart", "arrive_by", "prefer")},
+                                                                         default=str, ensure_ascii=False)}]
+    out = {"query": json.loads(json.dumps(q, default=str, ensure_ascii=False)), "history": history[-8:],
+           "question": q["question"], "meta": None, "results": [], "map_html": None}
+    if q["question"] or not q["dest"]:
+        out["question"] = q["question"] or "어디로 가세요? 목적지를 말해 주세요."
+        return out
+    origin = q["origin"] or (f"{req.lat},{req.lon}" if req.lat is not None and req.lon is not None else None)
+    if origin is None:
+        out["question"] = "어디서 출발하세요? 위치 권한을 허용하거나 출발지를 말해 주세요."
+        return out
+    try:
+        r = run_recommend(origin, q["dest"], predictor, recent(), tmap, depart=q["depart"], arrive_by=q["arrive_by"],
+                          stay_min=q["stay_min"] or req.stay_min, prefer=q["prefer"])
+    except (ValueError, RuntimeError) as e:
+        out["question"] = f"'{q['dest']}'을(를) 찾지 못했어요. 장소 이름을 다시 말해 주세요. ({str(e)[:80]})"
+        return out
+    if q["origin"] is None:
+        r["meta"]["origin"]["name"] = "현재 위치"
+    out.update(meta=json.loads(json.dumps(r["meta"], default=str, ensure_ascii=False)), results=records(r["table"]),
+               map_html=tmap_html(r, tmap.key) if tmap.key else None)
+    return out
 
 
 @app.get("/demo", response_class=HTMLResponse)

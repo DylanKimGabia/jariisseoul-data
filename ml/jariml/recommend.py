@@ -23,6 +23,14 @@ from .tmap import CAR_KMH, DETOUR, WALK_DETOUR, WALK_KMH, Tmap, haversine_m
 GRADES = [(0.8, "높음"), (0.5, "보통"), (0.0, "낮음")]     # [주1] 자리 있을 확률 등급 기준
 PNR_DETOUR_MAX = 1.3          # [주2] 출발지→P&R→목적지 직선거리가 출발지→목적지의 1.3배 이하면 '가는 길'로 본다
 WALK_MAX_M = 1500             # [주5] 걸어서 갈 만한 최대 거리(길 기준). 넘으면 마지막 이동을 대중교통으로 추정
+# [주8] 선호별 최종 정렬 기준 (열, 오름차순 여부). 기본: 확률 등급 → 총 소요시간 → 마지막 이동 거리
+PREFER_SORT = {
+    "기본": (["grade_rank", "total_s", "last_m"], [True, True, True]),
+    "가까운": (["grade_rank", "last_m", "total_s"], [True, True, True]),
+    "저렴한": (["grade_rank", "fee", "total_s"], [True, True, True]),
+    "확실한": (["prob", "total_s"], [False, True]),
+    "환승주차장": (["not_pnr", "grade_rank", "total_s"], [True, True, True]),
+}
 ARRIVE_BUFFER_MIN = 15       # [주7] 도착 목표가 있을 때 주차하고 목적지까지 가는 여유 시간
 TRANSIT_PER_SEARCH = 1       # [주6] 검색 1번에 TMAP 대중교통을 부르는 최대 곳 수 (Free 하루 10건 → 하루 10번 검색)
 TRANSIT_KMH, TRANSIT_WAIT_MIN = 18, 10   # [주3] 대중교통 API가 없어 P&R 이후 구간은 평균 속도 18km/h + 대기, 도보 10분으로 추정
@@ -73,8 +81,9 @@ def parse_depart(x, now=None):
 
 
 def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=None, k=5, radius_m=1000,
-              max_radius_m=2000, stay_min=120, with_pnr=True, arrive_by=None) -> dict:
+              max_radius_m=2000, stay_min=120, with_pnr=True, arrive_by=None, prefer="기본") -> dict:
     """origin, dest: 장소 이름(텍스트) 또는 (위도, 경도). depart: 출발 시각 (없으면 지금).
+    prefer: 정렬 선호 (PREFER_SORT의 키). 어떤 선호든 확률 등급이 먼저다 ('확실한'은 확률 자체).
     arrive_by: 목적지 도착 목표 시각. 주면 운전 시간 + 주차, 이동 여유(ARRIVE_BUFFER_MIN)를 빼서 출발 시각을 정한다.
     반환: {"table": 추천 표(영문 열), "meta": 검색 정보}. 한글 표는 to_korean(table)."""
     t0 = time.perf_counter()
@@ -162,7 +171,7 @@ def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=
             top.at[c, "last_m"], top.at[c, "last_s"], top.at[c, "last_leg"] = tr["dist_m"], tr["time_s"], "대중교통(TMAP)"
             paths[c] = {"mode": "대중교통", "path": tr["path"], "fare": tr["fare"], "transfers": tr["transfers"]}
 
-    # ⑦ 최종 정렬, 요금
+    # ⑦ 요금, 최종 정렬 (선호가 있으면 그 기준으로)
     top = ranked(top)
     rules, hol = predictor.a["fee_rule"], predictor.hol
 
@@ -171,16 +180,20 @@ def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=
             return parking_fee(rules.loc[c], top.at[c, "arrival"], stay_min, top.at[c, "kind"] == "환승", hol)
         except (KeyError, TypeError, ValueError):
             return None
+    top["fee"] = [fee(c) for c in top.index]
+    top["not_pnr"] = top.kind.ne("환승")
+    keys, asc = PREFER_SORT.get(prefer, PREFER_SORT["기본"])
+    top = top.sort_values(keys, ascending=asc, na_position="last")
     out = pd.DataFrame({
         "rank": range(1, len(top) + 1), "PKLT_CD": top.index, "name": top.PKLT_NM.values, "is_pnr": top.kind.eq("환승").values,
         "grade": top.grade.values, "prob": (top.prob * 100).round(1).values,
         "pred_free": top.pred_free.values, "now_free": top.now_free.values, "cap": top.cap.values,
         "arrival": top.arrival.dt.floor("min").values, "drive_min": (top.drive_s / 60).round(1).values,
         "last_leg": top.last_leg.values, "last_min": (top.last_s / 60).round(1).values, "last_m": top.last_m.round(0).values,
-        "total_min": (top.total_s / 60).round(1).values, "fee": [fee(c) for c in top.index],
+        "total_min": (top.total_s / 60).round(1).values, "fee": top.fee.values,
         "confidence": top.confidence.values, "lat": top.LAT.values, "lon": top.LNG.values,
     })
-    meta = {"note": note, "origin": o, "dest": d, "depart": depart, "arrive_by": arrive_by, "data_time": data_now,
+    meta = {"note": note, "prefer": prefer, "origin": o, "dest": d, "depart": depart, "arrive_by": arrive_by, "data_time": data_now,
             "data_lag_min": round((kst_now() - data_now).total_seconds() / 60, 1),
             "car": {k_: v for k_, v in main.items() if k_ != "path"}, "paths": {"car": main["path"], "lots": paths},
             "candidates": int(len(cand)), "free_threshold": k_free, "stay_min": stay_min,

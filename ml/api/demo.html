@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>자리있서울 음성 검색</title>
+<title>자리있서울 AI 음성 검색</title>
 <style>
   :root { --bg:#f6f7f9; --card:#fff; --ink:#1c1f24; --sub:#6b7280; --line:#e5e7eb; --brand:#1565c0;
           --hi:#2e7d32; --mid:#ef6c00; --lo:#c62828; }
@@ -31,29 +31,39 @@
   .detail { color:var(--sub); font-size:13px; }
   .grade { font-size:12px; text-align:right; }
   iframe { width:100%; height:520px; border:1px solid var(--line); border-radius:14px; background:#fff; }
+  .ai { background:#eef4fd; border:1px solid #cfe0f7; border-radius:14px; padding:12px 14px; margin-bottom:14px; font-size:14px; line-height:1.6; }
+  .ai .who { font-size:12px; color:var(--brand); font-weight:700; margin-bottom:2px; }
+  .ai .err { color:var(--mid); font-weight:400; }
+  .ai .ask { font-weight:700; font-size:15px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .chip { background:#fff; border:1px solid var(--line); border-radius:999px; padding:2px 10px; font-size:13px; white-space:nowrap; }
+  .chip b { color:var(--sub); font-weight:400; margin-right:2px; }
   .hint { color:var(--sub); font-size:13px; margin-top:8px; }
-  @media (max-width:560px) { .card { grid-template-columns:32px 1fr auto; } iframe { height:420px; } }
+  @media (max-width:560px) { .card { grid-template-columns:32px 1fr auto; } iframe { height:420px; }
+    .bar { flex-wrap:wrap; } #q { flex-basis:calc(100% - 66px); } .bar .btn { flex:1; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>자리있서울 음성 검색</h1>
-  <p class="lead">마이크를 누르고 말하세요. 예: "수원 SK스카이뷰에서 교대역까지 내일 아침 8시", "강남역 근처 주차할 곳 알려줘"</p>
+  <h1>자리있서울 AI 음성 검색</h1>
+  <p class="lead">마이크를 누르고 편하게 말하세요. 예: "내일 아침 9시 회의인데 교대역 근처에 세울 데 있을까? 수원 SK스카이뷰에서 나가", "강남역 근처 싼 데로"</p>
 
   <div class="bar">
     <button id="mic" title="말하기">&#127908;</button>
     <input id="q" placeholder="말한 내용이 여기에 나와요. 직접 입력해도 돼요.">
     <button class="btn" id="go">검색</button>
+    <button class="btn" id="reset" title="대화 처음부터">새 대화</button>
   </div>
   <div id="status"></div>
+  <div id="ai"></div>
 
   <div id="out"></div>
-  <p class="hint">출발지를 말하지 않으면 현재 위치에서 출발해요 (위치 권한 필요). "8시까지 가야 돼"처럼 말하면 도착 목표 시각으로 보고 출발 시각을 계산해요.</p>
+  <p class="hint">출발지를 말하지 않으면 현재 위치에서 출발해요 (위치 권한 필요). 결과를 본 뒤 "30분 늦게", "더 싼 데"처럼 이어서 말해도 돼요.</p>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
 const COLOR = { "높음": "var(--hi)", "보통": "var(--mid)", "낮음": "var(--lo)" };
-let here = null;
+let here = null, history = [];
 
 navigator.geolocation && navigator.geolocation.getCurrentPosition(
   (p) => { here = { lat: p.coords.latitude, lon: p.coords.longitude }; }, () => {}, { timeout: 8000 });
@@ -78,26 +88,40 @@ if (SR) {
 $("mic").onclick = () => { if (!rec) return; $("mic").classList.contains("on") ? rec.stop() : rec.start(); };
 $("go").onclick = search;
 $("q").onkeydown = (e) => { if (e.key === "Enter") search(); };
+$("reset").onclick = () => { history = []; $("ai").innerHTML = ""; $("out").innerHTML = ""; $("q").value = ""; status("새 대화를 시작해요."); };
 
 function status(t) { $("status").textContent = t; }
 
 async function search() {
   const text = $("q").value.trim();
   if (!text) return;
-  status("추천을 찾는 중이에요...");
-  const p = new URLSearchParams({ text });
-  if (here) { p.set("lat", here.lat); p.set("lon", here.lon); }
+  status("AI가 이해하고 추천을 찾는 중이에요...");
+  const t0 = performance.now();
   try {
-    const res = await fetch("/voice?" + p);
+    const res = await fetch("/agent", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, history, lat: here && here.lat, lon: here && here.lon }) });
     const j = await res.json();
     if (!res.ok) { status(j.detail || "오류가 났어요."); return; }
+    history = j.history;
+    showAI(j);
+    if (j.question) { status("AI가 물어봤어요. 마이크를 눌러 답해 주세요."); return; }
     render(j);
-    status("완료 (" + j.meta.elapsed_s + "초)");
+    status("완료 (" + ((performance.now() - t0) / 1000).toFixed(1) + "초, 추천 " + j.meta.elapsed_s + "초)");
   } catch (e) { status("서버에 연결하지 못했어요: " + e); }
 }
 
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 function hm(iso) { return iso ? iso.slice(11, 16) : ""; }
+
+function showAI(j) {
+  const q = j.query, chip = (k, v) => v ? `<span class="chip"><b>${k}</b> ${esc(v)}</span>` : "";
+  const when = q.arrive_by ? ["도착 목표", q.arrive_by.slice(5, 16)] : ["출발", q.depart ? q.depart.slice(5, 16) : "지금"];
+  $("ai").innerHTML = `<div class="ai">
+    <div class="who">${q.source === "GPT" ? "AI 에이전트 (GPT)" : "규칙 해석기"}${q.error ? ' <span class="err">GPT 사용 불가로 대체</span>' : ""}</div>
+    ${j.question ? `<div class="ask">${esc(j.question)}</div>` : (q.understood ? `<div>${esc(q.understood)}</div>` : "")}
+    <div class="chips">${chip("출발지", q.origin || (q.dest ? "현재 위치" : ""))}${chip("목적지", q.dest)}${q.dest ? chip(when[0], when[1]) : ""}
+      ${chip("주차", q.stay_min ? q.stay_min + "분" : "")}${q.prefer && q.prefer !== "기본" ? chip("선호", q.prefer) : ""}</div></div>`;
+}
 
 function render(j) {
   const m = j.meta, q = j.query;

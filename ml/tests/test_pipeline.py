@@ -201,3 +201,23 @@ def test_parse_voice():
     assert parse_voice("판교에서 코엑스로 오늘 저녁 7시", now)["depart"] == pd.Timestamp("2026-11-18 19:00")
     q = parse_voice("수원 sk 스카이뷰부터 서울시청 역까지 갈 거고 내일 아침 8시 반에 반까지 가야 돼.", now)
     assert (q["origin"], q["dest"], q["depart"], q["arrive_by"]) == ("수원 sk 스카이뷰", "서울시청역", None, pd.Timestamp("2026-11-19 08:30"))
+
+
+def test_agent_gpt_and_fallback(monkeypatch):
+    """에이전트: GPT 결과를 입력값으로 바꾸고, 목적지가 없으면 되묻고, GPT를 못 쓰면 규칙 해석기로 대신한다."""
+    from jariml import agent
+    now = pd.Timestamp("2026-11-18 09:20")
+    fake = {"origin": "수원 SK스카이뷰", "origin_is_here": False, "dest": "교대역", "depart": None,
+            "arrive_by": "2026-11-19 09:00", "stay_min": 180, "prefer": "저렴한", "question": None, "understood": "요약"}
+    monkeypatch.setattr(agent, "ask_gpt", lambda *a, **k: fake)
+    q = agent.understand("내일 9시 회의인데 교대역 근처 싼 데, 수원 스카이브에서 나가", now=now)
+    assert (q["source"], q["origin"], q["dest"], q["arrive_by"], q["prefer"]) == (
+        "GPT", "수원 SK스카이뷰", "교대역", pd.Timestamp("2026-11-19 09:00"), "저렴한")
+    monkeypatch.setattr(agent, "ask_gpt", lambda *a, **k: {**fake, "dest": None, "question": "어디로 가세요?"})
+    assert agent.understand("내일 9시", now=now)["question"] == "어디로 가세요?"
+
+    def fail(*a, **k):
+        raise RuntimeError("OPENAI_API_KEY가 없다")
+    monkeypatch.setattr(agent, "ask_gpt", fail)
+    q = agent.understand("강남역 근처 주차할 곳 알려줘", now=now)
+    assert (q["source"], q["dest"], q["origin"]) == ("규칙", "강남역", None) and q["error"]

@@ -38,14 +38,15 @@ def haversine_m(lat1, lon1, lat2, lon2):
     return 2 * 6_371_000 * np.arcsin(np.sqrt(a))
 
 
-def find_key() -> str | None:
-    if os.environ.get("TMAP_APP_KEY"):
-        return os.environ["TMAP_APP_KEY"].strip()
+def find_key(name: str = "TMAP_APP_KEY") -> str | None:
+    """환경 변수 name, 없으면 지금 폴더부터 위로 올라가며 찾은 .env 파일의 name=... 값."""
+    if os.environ.get(name):
+        return os.environ[name].strip()
     for d in [Path.cwd(), *Path.cwd().parents]:
         f = d / ".env"
         if f.exists():
             for line in f.read_text(encoding="utf-8").splitlines():
-                if line.startswith("TMAP_APP_KEY="):
+                if line.startswith(name + "="):
                     return line.split("=", 1)[1].strip()
     return None
 
