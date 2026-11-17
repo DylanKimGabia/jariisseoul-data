@@ -20,7 +20,7 @@ from pathlib import Path
 import pandas as pd
 
 BASE = "https://apis.openapi.sk.com/tmap"
-ROUTE_LIMIT, POI_LIMIT = 1000, 20000
+ROUTE_LIMIT, POI_LIMIT, TRANSIT_LIMIT = 1000, 20000, 10      # Free 하루 한도 (대중교통은 별도 상품)
 USAGE_FILE = Path.home() / ".jariml_tmap_usage.json"
 
 # [주2] 가짜 응답 모드의 추정값. 서울 도심 평균 기준으로 잡은 값이다.
@@ -57,7 +57,7 @@ class Tmap:
         if live and not self.key:
             raise RuntimeError("TMAP 키가 없다. .env 파일에 TMAP_APP_KEY=... 를 적거나 live=False로 쓴다.")
         self._cache = {}
-        self.calls = {"poi": 0, "route": 0}            # 이 객체가 실제로 부른 횟수
+        self.calls = {"poi": 0, "route": 0, "transit": 0}            # 이 객체가 실제로 부른 횟수
 
     # ---------- 공통 ----------
     def _count(self, kind):
@@ -66,7 +66,7 @@ class Tmap:
             u = json.loads(USAGE_FILE.read_text()) if USAGE_FILE.exists() else {}
         except (ValueError, OSError):
             u = {}
-        today = u.setdefault(str(date.today()), {"poi": 0, "route": 0})
+        today = {"poi": 0, "route": 0, "transit": 0, **u.get(str(date.today()), {})}
         today[kind] += 1
         try:
             USAGE_FILE.write_text(json.dumps({str(date.today()): today}))
@@ -78,9 +78,10 @@ class Tmap:
     @staticmethod
     def usage_today() -> dict:
         try:
-            return json.loads(USAGE_FILE.read_text()).get(str(date.today()), {"poi": 0, "route": 0})
+            u = json.loads(USAGE_FILE.read_text()).get(str(date.today()), {})
         except (ValueError, OSError):
-            return {"poi": 0, "route": 0}
+            u = {}
+        return {"poi": 0, "route": 0, "transit": 0, **u}
 
     def _cached(self, key, fn):
         hit = self._cache.get(key)
@@ -90,8 +91,9 @@ class Tmap:
         self._cache[key] = (time.time(), val)
         return val
 
-    def _request(self, path, kind, params=None, body=None):
-        url = f"{BASE}/{path}?" + urllib.parse.urlencode({"version": 1, **(params or {})})
+    def _request(self, path, kind, params=None, body=None, base=BASE, version=True):
+        q = {"version": 1, **(params or {})} if version else (params or {})
+        url = f"{base}/{path}" + ("?" + urllib.parse.urlencode(q) if q else "")
         req = urllib.request.Request(url, method="POST" if body else "GET",
                                      data=json.dumps(body).encode() if body else None,
                                      headers={"appKey": self.key, "Accept": "application/json", "Content-Type": "application/json"})
@@ -135,7 +137,7 @@ class Tmap:
         """자동차 경로 → {dist_m, time_s, source}. depart를 주면(미래 시각) 그 시각 교통을 반영한 타임머신 경로."""
         if not self.live:
             d = float(haversine_m(a["lat"], a["lon"], b["lat"], b["lon"])) * DETOUR
-            return {"dist_m": d, "time_s": d / (CAR_KMH / 3.6), "source": "추정"}
+            return {"dist_m": d, "time_s": d / (CAR_KMH / 3.6), "source": "추정", "path": [[a["lat"], a["lon"]], [b["lat"], b["lon"]]]}
         future = depart is not None and pd.Timestamp(depart) > pd.Timestamp.now() + pd.Timedelta(minutes=10)
         key = ("car", round(a["lat"], 4), round(a["lon"], 4), round(b["lat"], 4), round(b["lon"], 4),
                pd.Timestamp(depart).floor("15min") if future else None)
@@ -154,21 +156,65 @@ class Tmap:
                 d = self._request("routes", "route", body=body)
                 src = "TMAP 실시간"
             pr = _first_total(d)
-            return {"dist_m": float(pr["totalDistance"]), "time_s": float(pr["totalTime"]), "source": src}
+            return {"dist_m": float(pr["totalDistance"]), "time_s": float(pr["totalTime"]), "source": src, "path": _lines(d)}
         return self._cached(key, call)
 
     def walk(self, a: dict, b: dict) -> dict:
         """보행자 경로 → {dist_m, time_s, source}."""
         if not self.live:
             d = float(haversine_m(a["lat"], a["lon"], b["lat"], b["lon"])) * WALK_DETOUR
-            return {"dist_m": d, "time_s": d / (WALK_KMH / 3.6), "source": "추정"}
+            return {"dist_m": d, "time_s": d / (WALK_KMH / 3.6), "source": "추정", "path": [[a["lat"], a["lon"]], [b["lat"], b["lon"]]]}
 
         def call():
             body = {"startX": str(a["lon"]), "startY": str(a["lat"]), "endX": str(b["lon"]), "endY": str(b["lat"]),
                     "startName": "start", "endName": "end", "reqCoordType": "WGS84GEO", "resCoordType": "WGS84GEO"}
-            pr = _first_total(self._request("routes/pedestrian", "route", body=body))
-            return {"dist_m": float(pr["totalDistance"]), "time_s": float(pr["totalTime"]), "source": "TMAP"}
+            d = self._request("routes/pedestrian", "route", body=body)
+            pr = _first_total(d)
+            return {"dist_m": float(pr["totalDistance"]), "time_s": float(pr["totalTime"]), "source": "TMAP", "path": _lines(d)}
         return self._cached(("walk", round(a["lat"], 4), round(a["lon"], 4), round(b["lat"], 4), round(b["lon"], 4)), call)
+
+    def transit(self, a: dict, b: dict) -> dict | None:
+        """대중교통 경로 → {dist_m, time_s, fare, transfers, source, path}. 가짜 모드이거나 오늘 한도(10건)를 다 쓰면 None.
+
+        [주4] 대중교통은 출발 시각을 지정하지 않는다 (지금 기준 경로). 미래 출발이어도 소요시간은 비슷하다고 본다.
+        """
+        if not self.live or self.usage_today()["transit"] >= TRANSIT_LIMIT:
+            return None
+
+        def call():
+            body = {"startX": str(a["lon"]), "startY": str(a["lat"]), "endX": str(b["lon"]), "endY": str(b["lat"]),
+                    "count": 1, "lang": 0, "format": "json"}
+            d = self._request("transit/routes", "transit", body=body, base="https://apis.openapi.sk.com", version=False)
+            its = (((d.get("metaData") or {}).get("plan") or {}).get("itineraries") or [])
+            if not its:
+                return None
+            it = its[0]
+            path = []
+            for leg in it.get("legs", []):
+                ls = (leg.get("passShape") or {}).get("linestring")
+                if not ls:
+                    ls = " ".join(st.get("linestring", "") for st in leg.get("steps", []) or [])
+                for xy in (ls or "").split():
+                    x, y = xy.split(",")
+                    path.append([float(y), float(x)])
+            return {"dist_m": float(it.get("totalDistance", 0)), "time_s": float(it["totalTime"]),
+                    "fare": (it.get("fare") or {}).get("regular", {}).get("totalFare"),
+                    "transfers": it.get("transferCount"), "source": "TMAP", "path": path}
+        try:
+            return self._cached(("transit", round(a["lat"], 4), round(a["lon"], 4), round(b["lat"], 4), round(b["lon"], 4)), call)
+        except (RuntimeError, KeyError, ValueError) as e:
+            print("[대중교통 API 실패, 추정으로 대체]", str(e)[:200])
+            return None
+
+
+def _lines(d: dict) -> list:
+    """경로 응답의 선(LineString) 좌표를 [위도, 경도] 목록으로 이어 붙인다 (지도 그리기용)."""
+    out = []
+    for f in d.get("features", []):
+        g = f.get("geometry") or {}
+        if g.get("type") == "LineString":
+            out += [[float(y), float(x)] for x, y in g.get("coordinates", [])]
+    return out
 
 
 def _first_total(d: dict) -> dict:

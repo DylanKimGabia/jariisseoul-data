@@ -170,5 +170,18 @@ def test_recommend_mock(trained, fake_data):
     r = recommend((37.45, 127.0), (37.5, 127.0), p, recent, Tmap(live=False), depart=recent.t.max())
     t = r["table"]
     assert 1 <= len(t) <= 5 and list(t["rank"]) == list(range(1, len(t) + 1))
-    assert t.prob.between(0, 100).all() and r["meta"]["tmap_calls"] == {"poi": 0, "route": 0}
+    assert t.prob.between(0, 100).all() and r["meta"]["tmap_calls"] == {"poi": 0, "route": 0, "transit": 0}
     assert "자리 있을 확률(%)" in to_korean(t).columns
+
+
+def test_tmap_map_html(trained, fake_data):
+    """TMAP 지도 HTML: 키, 경로선, 순위 표시가 들어간다."""
+    from jariml.recommend import recommend
+    from jariml.tmap import Tmap
+    from jariml.tmapview import tmap_html
+    cfg, out = trained
+    p = Predictor.load(cfg["registry"]["dir"])
+    recent = p.recent_from_data_dir(fake_data)
+    r = recommend((37.45, 127.0), (37.5, 127.0), p, recent, Tmap(live=False), depart=recent.t.max())
+    h = tmap_html(r, "TESTKEY")
+    assert "appKey=TESTKEY" in h and "Tmapv2.Polyline" in h and h.count('"rank"') == len(r["table"])

@@ -23,6 +23,7 @@ from .tmap import CAR_KMH, DETOUR, WALK_DETOUR, WALK_KMH, Tmap, haversine_m
 GRADES = [(0.8, "높음"), (0.5, "보통"), (0.0, "낮음")]     # [주1] 자리 있을 확률 등급 기준
 PNR_DETOUR_MAX = 1.3          # [주2] 출발지→P&R→목적지 직선거리가 출발지→목적지의 1.3배 이하면 '가는 길'로 본다
 WALK_MAX_M = 1500             # [주5] 걸어서 갈 만한 최대 거리(길 기준). 넘으면 마지막 이동을 대중교통으로 추정
+TRANSIT_PER_SEARCH = 1       # [주6] 검색 1번에 TMAP 대중교통을 부르는 최대 곳 수 (Free 하루 10건 → 하루 10번 검색)
 TRANSIT_KMH, TRANSIT_WAIT_MIN = 18, 10   # [주3] 대중교통 API가 없어 P&R 이후 구간은 평균 속도 18km/h + 대기, 도보 10분으로 추정
 
 KO = {"rank": "순위", "name": "주차장", "is_pnr": "환승주차장", "grade": "확률 등급", "prob": "자리 있을 확률(%)",
@@ -145,6 +146,16 @@ def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=
     for c, w in zip(walk_ids, walks):
         top.at[c, "last_m"], top.at[c, "last_s"] = w["dist_m"], w["time_s"]
 
+    paths = {c: {"mode": "도보", "path": w["path"]} for c, w in zip(walk_ids, walks)}
+
+    # ⑥-2 대중교통 이동이 필요한 곳 중 가장 순위 높은 1곳만 TMAP 대중교통 (Free 하루 10건)
+    top = ranked(top)
+    for c in list(top[top.last_leg == "대중교통(추정)"].index)[:TRANSIT_PER_SEARCH]:
+        tr = tm.transit({"lat": top.at[c, "LAT"], "lon": top.at[c, "LNG"]}, d)
+        if tr:
+            top.at[c, "last_m"], top.at[c, "last_s"], top.at[c, "last_leg"] = tr["dist_m"], tr["time_s"], "대중교통(TMAP)"
+            paths[c] = {"mode": "대중교통", "path": tr["path"], "fare": tr["fare"], "transfers": tr["transfers"]}
+
     # ⑦ 최종 정렬, 요금
     top = ranked(top)
     rules, hol = predictor.a["fee_rule"], predictor.hol
@@ -165,7 +176,8 @@ def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=
     })
     meta = {"note": note, "origin": o, "dest": d, "depart": depart, "data_time": data_now,
             "data_lag_min": round((kst_now() - data_now).total_seconds() / 60, 1),
-            "car": main, "candidates": int(len(cand)), "free_threshold": k_free, "stay_min": stay_min,
+            "car": {k_: v for k_, v in main.items() if k_ != "path"}, "paths": {"car": main["path"], "lots": paths},
+            "candidates": int(len(cand)), "free_threshold": k_free, "stay_min": stay_min,
             "tmap_calls": {key: tm.calls[key] - calls0[key] for key in tm.calls}, "live": tm.live,
             "elapsed_s": round(time.perf_counter() - t0, 2)}
     return {"table": out, "meta": meta}
