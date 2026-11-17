@@ -15,10 +15,13 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
 from jariml import Predictor
+from jariml.recommend import recommend as run_recommend
+from jariml.tmap import Tmap, find_key
 
 app = FastAPI(title="자리있서울 빈자리 예측 API")
 predictor = Predictor.load()
 _cache = {"at": 0.0, "recent": None}
+tmap = Tmap(live=find_key() is not None)        # 키(환경 변수 TMAP_APP_KEY 또는 .env)가 없으면 직선거리 추정 모드
 
 
 def records(df: pd.DataFrame) -> list[dict]:
@@ -61,3 +64,17 @@ def predict(req: PredictRequest):
 @app.get("/deadline")
 def deadline(min_prob: float = Query(0.8, ge=0.5, le=0.99), lots: list[str] | None = Query(None)):
     return records(predictor.deadline(recent(), lots=lots, min_prob=min_prob))
+
+
+@app.get("/recommend")
+def recommend(origin: str = Query(..., description="출발지 (예: 강남역)"),
+              dest: str = Query(..., description="목적지 (예: 서울시청)"),
+              depart: datetime | None = Query(None, description="출발 시각. 비우면 지금"),
+              stay_min: int = Query(120, description="주차 시간(분), 요금 계산용")):
+    """출발지, 목적지 → 도착 시점 기준 목적지 주변 공영주차장 상위 5곳 (환승주차장 1곳 포함)."""
+    try:
+        r = run_recommend(origin, dest, predictor, recent(), tmap, depart=depart, stay_min=stay_min)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    meta = {k: v for k, v in r["meta"].items()}
+    return {"meta": json.loads(json.dumps(meta, default=str, ensure_ascii=False)), "results": records(r["table"])}

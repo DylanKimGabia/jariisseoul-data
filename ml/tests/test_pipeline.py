@@ -158,3 +158,17 @@ def test_artifact_has_no_path_objects(trained):
             return any(walk(v) for v in x.values())
         return isinstance(x, PurePath)
     assert not walk(out["artifact"]["config"])
+
+
+def test_recommend_mock(trained, fake_data):
+    """추천: 가짜 응답 모드(TMAP 호출 없음)로 상위 5곳이 정해진 열로 나온다."""
+    from jariml.recommend import recommend, to_korean
+    from jariml.tmap import Tmap
+    cfg, out = trained
+    p = Predictor.load(cfg["registry"]["dir"])
+    recent = p.recent_from_data_dir(fake_data)
+    r = recommend((37.45, 127.0), (37.5, 127.0), p, recent, Tmap(live=False), depart=recent.t.max())
+    t = r["table"]
+    assert 1 <= len(t) <= 5 and list(t["rank"]) == list(range(1, len(t) + 1))
+    assert t.prob.between(0, 100).all() and r["meta"]["tmap_calls"] == {"poi": 0, "route": 0}
+    assert "자리 있을 확률(%)" in to_korean(t).columns

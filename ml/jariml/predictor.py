@@ -52,6 +52,25 @@ class Predictor:
         live = live[live.PRK_STTS_YN == 1]
         return live.rename(columns={"NOW_PRK_VHCL_CNT": "cnt", "TPKCT": "cap"})[["t", "PKLT_CD", "cnt", "cap"]]
 
+    def recent_from_github(self, days: int = 2) -> pd.DataFrame:
+        """GitHub 수집 저장소에서 최근 days일 live 파일만 받아 recent 표를 만든다 (전체 zip을 받지 않는다)."""
+        base = self.cfg["data"].get("github_raw") or load_config()["data"]["github_raw"]
+        today = pd.Timestamp.now(tz="Asia/Seoul").normalize().tz_localize(None)       # 수집 시각은 한국 시각
+        frames = []
+        for i in range(days - 1, -1, -1):
+            day = (today - pd.Timedelta(days=i)).date()
+            try:
+                frames.append(pd.read_csv(f"{base}/live/{day}.csv", dtype={"PKLT_CD": str}))
+            except Exception:                                                         # 자정 직후엔 오늘 파일이 아직 없을 수 있다
+                continue
+        if not frames:
+            raise RuntimeError("GitHub에서 최근 수집 기록을 받지 못했다")
+        live = pd.concat(frames, ignore_index=True)
+        live["t"] = pd.to_datetime(live.collected_at).dt.floor("5min")
+        live = live.drop_duplicates(["PKLT_CD", "t"], keep="last")
+        live = live[live.PRK_STTS_YN == 1]
+        return live.rename(columns={"NOW_PRK_VHCL_CNT": "cnt", "TPKCT": "cap"})[["t", "PKLT_CD", "cnt", "cap"]]
+
     def _grid(self, recent: pd.DataFrame, now=None):
         r = recent[recent.PKLT_CD.isin(self.lots)].copy()
         r["t"] = pd.to_datetime(r.t).dt.floor("5min")

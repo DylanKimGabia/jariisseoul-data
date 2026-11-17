@@ -6,6 +6,8 @@ data:
   data_dir: ../data
   github_zip: https://github.com/DylanKimGabia/jariisseoul-data/archive/refs/heads/main.zip
   data_cache: .cache/jariisseoul_data
+  # 예측할 때 최근 기록만 받는 주소 (하루 파일 약 3MB). data/live/<날짜>.csv
+  github_raw: https://raw.githubusercontent.com/DylanKimGabia/jariisseoul-data/main/data
 
 preprocess:
   step_min: 5                 # 시계열 간격(분). 수집 주기와 같다.
