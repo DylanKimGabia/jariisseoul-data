@@ -40,6 +40,14 @@ model:
   l2_regularization: 1.0
   random_state: 42
 
+engine_params:
+  # gbm 외 엔진 설정 (모델 비교용). 비워 두면 각 엔진의 기본값을 쓴다.
+  rf:   {n_estimators: 100, max_depth: 18, max_train_rows: 300000}   # 학습이 느려 30만 행만 사용
+  lgbm: {n_estimators: 2000, learning_rate: 0.05, num_leaves: 63}    # 검증 기간 조기 종료
+  xgb:  {n_estimators: 2000, learning_rate: 0.05, max_depth: 8}      # 검증 기간 조기 종료
+  mlp:  {hidden: [128, 64], max_iter: 40, max_train_rows: 400000}
+  gru:  {hidden: 64, emb: 8, epochs: 15, patience: 3, stride: 1}     # 최근 2시간 시계열 입력, 24칸 동시 예측
+
 probability:
   # 검증 기간 오차 분포로 확률을 계산한다. 예측 거리와 예측 점유율 구간별로 따로 모은다.
   horizon_bins: [6, 12, 24]                 # ~30분 / ~1시간 / ~2시간

@@ -52,6 +52,8 @@ def trained(fake_data, tmp_path_factory):
     cfg["registry"]["dir"] = tmp_path_factory.mktemp("models")
     cfg["split"].update(test_days=3, val_days=3)
     cfg["model"]["max_iter"] = 50
+    cfg["engine_params"] = {"rf": {"n_estimators": 10}, "lgbm": {"n_estimators": 50}, "xgb": {"n_estimators": 50},
+                            "mlp": {"max_iter": 3}, "gru": {"epochs": 2, "stride": 4}}
     return cfg, run(cfg)
 
 
@@ -92,6 +94,15 @@ def test_engine_contract(name, trained):
     assert set(pred.h) == {1, 12} and set(pred.PKLT_CD) == set(occ.columns)
     assert pred.pred.between(0, 1).all()
     assert eng.history_steps >= 1
+
+
+def test_benchmark_runs(trained):
+    """비교 도구가 끝까지 돌고, 모든 엔진의 정확도와 응답 시간이 나온다."""
+    from jariml.benchmark import run_benchmark
+    cfg, out = trained
+    r = run_benchmark(cfg, ["gbm", "ridge", "gru"], repeat=2, data=(out["tables"], out["split"]))["result"]
+    assert {"gbm", "ridge", "gru"} <= set(r.index)
+    assert (r.loc[["gbm", "ridge", "gru"], "예측 응답(ms)"] > 0).all()
 
 
 def test_fee():
