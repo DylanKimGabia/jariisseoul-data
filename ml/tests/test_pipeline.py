@@ -185,3 +185,17 @@ def test_tmap_map_html(trained, fake_data):
     r = recommend((37.45, 127.0), (37.5, 127.0), p, recent, Tmap(live=False), depart=recent.t.max())
     h = tmap_html(r, "TESTKEY")
     assert "appKey=TESTKEY" in h and "Tmapv2.Polyline" in h and h.count('"rank"') == len(r["table"])
+
+
+def test_parse_voice():
+    """음성 문장 해석: 출발지, 목적지, 출발 시각."""
+    from jariml.voice import parse_voice
+    now = pd.Timestamp("2026-11-18 09:20")
+    q = parse_voice("수원 SK스카이뷰에서 교대역까지 내일 아침 8시 반에 출발", now)
+    assert (q["origin"], q["dest"], q["depart"]) == ("수원 SK스카이뷰", "교대역", pd.Timestamp("2026-11-19 08:30"))
+    q = parse_voice("강남역 근처 주차할 곳 알려줘", now)
+    assert (q["origin"], q["dest"], q["depart"]) == (None, "강남역", None)
+    q = parse_voice("여기서 을지로입구역까지 30분 뒤에", now)
+    assert (q["origin"], q["dest"], q["depart"]) == (None, "을지로입구역", pd.Timestamp("2026-11-18 09:50"))
+    assert parse_voice("광화문에서 세종로 가는데 오후 3시", now)["dest"] == "세종로"
+    assert parse_voice("판교에서 코엑스로 오늘 저녁 7시", now)["depart"] == pd.Timestamp("2026-11-18 19:00")

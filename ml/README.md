@@ -38,6 +38,8 @@ uvicorn api.app:app --port 8000             # 예측 API → http://localhost:80
 | `tests/` | 가짜 데이터 파이프라인 테스트 |
 | `notebooks/02_model.ipynb` | 학습 결과를 표와 그래프로 보는 노트북 |
 | `notebooks/03_model_compare.ipynb` | 엔진 7개 정확도와 응답 속도 비교 |
+| `notebooks/06_voice_demo.ipynb` | 음성 검색 시연: 서버 켜기 → 브라우저 마이크(STT) → 추천 → 읽어 주기(TTS) |
+| `jariml/voice.py`, `api/demo.html` | 음성 문장 해석, 읽어 줄 문장 / 시연 페이지. API: `GET /voice?text=...`, `GET /demo` |
 | `notebooks/05_recommend.ipynb` | 출발지, 목적지 입력 → TMAP 연동 주차장 추천 5곳 + 지도 |
 | `jariml/tmap.py` | TMAP 호출 (장소 검색, 자동차, 타임머신, 보행자). 키는 환경 변수 또는 .env의 TMAP_APP_KEY |
 | `jariml/recommend.py` | 추천 흐름 (후보, 예측, 정렬, 도보, 요금). API: `GET /recommend?origin=강남역&dest=서울시청` |

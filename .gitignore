@@ -3,3 +3,4 @@ __pycache__/
 model/artifacts/
 .env
 ml/notebooks/*_map.html
+ml/server.log
