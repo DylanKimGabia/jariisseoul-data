@@ -3215,3 +3215,4 @@ collected_at,status,ok,fail,message
 2026-11-18 02:55:01,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=15 parking=59 
 2026-11-18 03:05:01,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=11 parking=61 
 2026-11-18 03:15:01,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=11 parking=59 
+2026-11-18 03:25:01,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=17 parking=61 
