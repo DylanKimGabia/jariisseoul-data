@@ -21,7 +21,7 @@ from jariml import Predictor
 from jariml.recommend import recommend as run_recommend
 from jariml.tmap import Tmap, find_key
 from jariml.tmapview import tmap_html
-from jariml.voice import parse_voice, speech
+from jariml.voice import parse_voice
 
 app = FastAPI(title="자리있서울 빈자리 예측 API")
 predictor = Predictor.load()
@@ -95,7 +95,7 @@ def voice(text: str = Query(..., description="음성 인식 문장 (예: 강남�
           lat: float | None = Query(None, description="현재 위치 위도 (출발지를 말하지 않았을 때)"),
           lon: float | None = Query(None, description="현재 위치 경도"),
           stay_min: int = 120, with_map: bool = True):
-    """음성 문장 → 검색 조건 → 추천 + 읽어 줄 문장(speech) + TMAP 지도 HTML(map_html, 키가 있을 때)."""
+    """음성 문장 → 검색 조건 → 추천 + TMAP 지도 HTML(map_html, 키가 있을 때)."""
     try:
         q = parse_voice(text)
     except ValueError as e:
@@ -104,18 +104,19 @@ def voice(text: str = Query(..., description="음성 인식 문장 (예: 강남�
     if origin is None:
         raise HTTPException(400, "출발지를 알 수 없다. 출발지를 말하거나 위치 권한을 허용한다.")
     try:
-        r = run_recommend(origin, q["dest"], predictor, recent(), tmap, depart=q["depart"], stay_min=stay_min)
+        r = run_recommend(origin, q["dest"], predictor, recent(), tmap, depart=q["depart"], arrive_by=q["arrive_by"],
+                          stay_min=stay_min)
     except (ValueError, RuntimeError) as e:
         raise HTTPException(404, str(e))
     if q["origin"] is None:
         r["meta"]["origin"]["name"] = "현재 위치"
     return {"query": json.loads(json.dumps(q, default=str, ensure_ascii=False)),
             "meta": json.loads(json.dumps(r["meta"], default=str, ensure_ascii=False)),
-            "results": records(r["table"]), "speech": speech(r),
+            "results": records(r["table"]),
             "map_html": tmap_html(r, tmap.key) if (with_map and tmap.key) else None}
 
 
 @app.get("/demo", response_class=HTMLResponse)
 def demo():
-    """음성 시연 페이지 (마이크 → STT → 추천 → 표, TMAP 지도, TTS)."""
+    """음성 시연 페이지 (마이크 → STT → 추천 → 표, TMAP 지도)."""
     return (Path(__file__).parent / "demo.html").read_text(encoding="utf-8")

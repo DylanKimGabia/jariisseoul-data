@@ -199,3 +199,5 @@ def test_parse_voice():
     assert (q["origin"], q["dest"], q["depart"]) == (None, "을지로입구역", pd.Timestamp("2026-11-18 09:50"))
     assert parse_voice("광화문에서 세종로 가는데 오후 3시", now)["dest"] == "세종로"
     assert parse_voice("판교에서 코엑스로 오늘 저녁 7시", now)["depart"] == pd.Timestamp("2026-11-18 19:00")
+    q = parse_voice("수원 sk 스카이뷰부터 서울시청 역까지 갈 거고 내일 아침 8시 반에 반까지 가야 돼.", now)
+    assert (q["origin"], q["dest"], q["depart"], q["arrive_by"]) == ("수원 sk 스카이뷰", "서울시청역", None, pd.Timestamp("2026-11-19 08:30"))

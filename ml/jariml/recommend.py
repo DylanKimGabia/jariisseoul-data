@@ -23,6 +23,7 @@ from .tmap import CAR_KMH, DETOUR, WALK_DETOUR, WALK_KMH, Tmap, haversine_m
 GRADES = [(0.8, "높음"), (0.5, "보통"), (0.0, "낮음")]     # [주1] 자리 있을 확률 등급 기준
 PNR_DETOUR_MAX = 1.3          # [주2] 출발지→P&R→목적지 직선거리가 출발지→목적지의 1.3배 이하면 '가는 길'로 본다
 WALK_MAX_M = 1500             # [주5] 걸어서 갈 만한 최대 거리(길 기준). 넘으면 마지막 이동을 대중교통으로 추정
+ARRIVE_BUFFER_MIN = 15       # [주7] 도착 목표가 있을 때 주차하고 목적지까지 가는 여유 시간
 TRANSIT_PER_SEARCH = 1       # [주6] 검색 1번에 TMAP 대중교통을 부르는 최대 곳 수 (Free 하루 10건 → 하루 10번 검색)
 TRANSIT_KMH, TRANSIT_WAIT_MIN = 18, 10   # [주3] 대중교통 API가 없어 P&R 이후 구간은 평균 속도 18km/h + 대기, 도보 10분으로 추정
 
@@ -72,17 +73,22 @@ def parse_depart(x, now=None):
 
 
 def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=None, k=5, radius_m=1000,
-              max_radius_m=2000, stay_min=120, with_pnr=True) -> dict:
+              max_radius_m=2000, stay_min=120, with_pnr=True, arrive_by=None) -> dict:
     """origin, dest: 장소 이름(텍스트) 또는 (위도, 경도). depart: 출발 시각 (없으면 지금).
+    arrive_by: 목적지 도착 목표 시각. 주면 운전 시간 + 주차, 이동 여유(ARRIVE_BUFFER_MIN)를 빼서 출발 시각을 정한다.
     반환: {"table": 추천 표(영문 열), "meta": 검색 정보}. 한글 표는 to_korean(table)."""
     t0 = time.perf_counter()
     tm = tmap or Tmap(live=False)
     calls0 = dict(tm.calls)
     o, d = tm.place(origin), tm.place(dest)
-    depart = parse_depart(depart) or kst_now()
     data_now = pd.to_datetime(recent.t).max().floor("5min")
-
-    main = tm.car(o, d, depart)                                         # ② 출발지 → 목적지
+    arrive_by = parse_depart(arrive_by)
+    if arrive_by is not None:                                           # ② 도착 목표 → 권장 출발 시각
+        main = tm.car(o, d, arrive_by=arrive_by)
+        depart = (arrive_by - pd.Timedelta(seconds=main["time_s"], minutes=ARRIVE_BUFFER_MIN)).floor("5min")
+    else:                                                               # ② 출발지 → 목적지
+        depart = parse_depart(depart) or kst_now()
+        main = tm.car(o, d, depart)
 
     lm = predictor.a["lot_master"].reindex(predictor.lots).dropna(subset=["LAT", "LNG"])
     od = float(haversine_m(o["lat"], o["lon"], d["lat"], d["lon"]))
@@ -174,7 +180,7 @@ def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=
         "total_min": (top.total_s / 60).round(1).values, "fee": [fee(c) for c in top.index],
         "confidence": top.confidence.values, "lat": top.LAT.values, "lon": top.LNG.values,
     })
-    meta = {"note": note, "origin": o, "dest": d, "depart": depart, "data_time": data_now,
+    meta = {"note": note, "origin": o, "dest": d, "depart": depart, "arrive_by": arrive_by, "data_time": data_now,
             "data_lag_min": round((kst_now() - data_now).total_seconds() / 60, 1),
             "car": {k_: v for k_, v in main.items() if k_ != "path"}, "paths": {"car": main["path"], "lots": paths},
             "candidates": int(len(cand)), "free_threshold": k_free, "stay_min": stay_min,

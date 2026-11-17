@@ -44,17 +44,16 @@
     <button id="mic" title="말하기">&#127908;</button>
     <input id="q" placeholder="말한 내용이 여기에 나와요. 직접 입력해도 돼요.">
     <button class="btn" id="go">검색</button>
-    <button class="btn" id="say" title="결과 다시 듣기">&#128264;</button>
   </div>
   <div id="status"></div>
 
   <div id="out"></div>
-  <p class="hint">출발지를 말하지 않으면 현재 위치에서 출발해요 (위치 권한 필요). 소리가 안 나오면 오른쪽 스피커 버튼을 누르세요.</p>
+  <p class="hint">출발지를 말하지 않으면 현재 위치에서 출발해요 (위치 권한 필요). "8시까지 가야 돼"처럼 말하면 도착 목표 시각으로 보고 출발 시각을 계산해요.</p>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
 const COLOR = { "높음": "var(--hi)", "보통": "var(--mid)", "낮음": "var(--lo)" };
-let here = null, lastSpeech = "";
+let here = null;
 
 navigator.geolocation && navigator.geolocation.getCurrentPosition(
   (p) => { here = { lat: p.coords.latitude, lon: p.coords.longitude }; }, () => {}, { timeout: 8000 });
@@ -76,23 +75,11 @@ if (SR) {
 } else {
   status("이 브라우저는 음성 인식을 지원하지 않아요. 크롬이나 엣지에서 열거나, 직접 입력해 주세요.");
 }
-$("mic").onclick = () => { if (!rec) return; speechSynthesis.cancel(); $("mic").classList.contains("on") ? rec.stop() : rec.start(); };
+$("mic").onclick = () => { if (!rec) return; $("mic").classList.contains("on") ? rec.stop() : rec.start(); };
 $("go").onclick = search;
 $("q").onkeydown = (e) => { if (e.key === "Enter") search(); };
-$("say").onclick = () => speak(lastSpeech);
 
 function status(t) { $("status").textContent = t; }
-
-// 결과 읽어 주기 (TTS): 브라우저 내장 speechSynthesis
-function speak(text) {
-  if (!text || !window.speechSynthesis) return;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "ko-KR"; u.rate = 1.05;
-  const ko = speechSynthesis.getVoices().find((v) => v.lang.startsWith("ko"));
-  if (ko) u.voice = ko;
-  speechSynthesis.speak(u);
-}
 
 async function search() {
   const text = $("q").value.trim();
@@ -103,9 +90,8 @@ async function search() {
   try {
     const res = await fetch("/voice?" + p);
     const j = await res.json();
-    if (!res.ok) { status(j.detail || "오류가 났어요."); speak(j.detail || ""); return; }
+    if (!res.ok) { status(j.detail || "오류가 났어요."); return; }
     render(j);
-    lastSpeech = j.speech; speak(j.speech);
     status("완료 (" + j.meta.elapsed_s + "초)");
   } catch (e) { status("서버에 연결하지 못했어요: " + e); }
 }
@@ -116,7 +102,7 @@ function hm(iso) { return iso ? iso.slice(11, 16) : ""; }
 function render(j) {
   const m = j.meta, q = j.query;
   let h = `<div class="meta"><b>${esc(m.origin.name)}</b> → <b>${esc(m.dest.name)}</b><br>
-    출발 ${hm(m.depart)} / 운전 ${Math.round(m.car.time_s / 60)}분, ${(m.car.dist_m / 1000).toFixed(1)}km (${esc(m.car.source)})<br>
+    ${m.arrive_by ? "도착 목표 " + hm(m.arrive_by) + " → 권장 출발 " : "출발 "}${hm(m.depart)} / 운전 ${Math.round(m.car.time_s / 60)}분, ${(m.car.dist_m / 1000).toFixed(1)}km (${esc(m.car.source)})<br>
     예측 기준 기록 ${hm(m.data_time)} / 빈자리 ${m.free_threshold}대 이상일 확률 기준`;
   if (m.note) h += `<br><span class="note">${esc(m.note)}</span>`;
   h += `</div><div class="cards">`;

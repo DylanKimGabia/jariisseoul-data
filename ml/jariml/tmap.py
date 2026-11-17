@@ -133,21 +133,23 @@ class Tmap:
         return self.poi(x)
 
     # ---------- 경로 ----------
-    def car(self, a: dict, b: dict, depart=None) -> dict:
-        """자동차 경로 → {dist_m, time_s, source}. depart를 주면(미래 시각) 그 시각 교통을 반영한 타임머신 경로."""
+    def car(self, a: dict, b: dict, depart=None, arrive_by=None) -> dict:
+        """자동차 경로 → {dist_m, time_s, source, path}. depart(미래 출발) 또는 arrive_by(도착 목표)를 주면
+        그 시각 교통을 반영한 타임머신 경로."""
         if not self.live:
             d = float(haversine_m(a["lat"], a["lon"], b["lat"], b["lon"])) * DETOUR
             return {"dist_m": d, "time_s": d / (CAR_KMH / 3.6), "source": "추정", "path": [[a["lat"], a["lon"]], [b["lat"], b["lon"]]]}
-        future = depart is not None and pd.Timestamp(depart) > pd.Timestamp.now() + pd.Timedelta(minutes=10)
+        when, kind = (arrive_by, "arrival") if arrive_by is not None else (depart, "departure")
+        future = when is not None and pd.Timestamp(when) > pd.Timestamp.now() + pd.Timedelta(minutes=10)
         key = ("car", round(a["lat"], 4), round(a["lon"], 4), round(b["lat"], 4), round(b["lon"], 4),
-               pd.Timestamp(depart).floor("15min") if future else None)
+               (kind, pd.Timestamp(when).floor("15min")) if future else None)
 
         def call():
             if future:
-                t = pd.Timestamp(depart).strftime("%Y-%m-%dT%H:%M:%S+0900")
+                t = pd.Timestamp(when).strftime("%Y-%m-%dT%H:%M:%S+0900")
                 body = {"routesInfo": {"departure": {"name": "start", "lon": str(a["lon"]), "lat": str(a["lat"])},
                                        "destination": {"name": "end", "lon": str(b["lon"]), "lat": str(b["lat"])},
-                                       "predictionType": "departure", "predictionTime": t, "searchOption": "00"}}
+                                       "predictionType": kind, "predictionTime": t, "searchOption": "00"}}
                 d = self._request("routes/prediction", "route", body=body)
                 src = "TMAP 타임머신"
             else:
