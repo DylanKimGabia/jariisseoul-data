@@ -7,6 +7,8 @@ models/
     metrics.json              평가 결과와 학습 정보
 """
 import json
+import pathlib
+import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -49,8 +51,23 @@ def promote_if_better(new_dir: Path, root: Path, metric: str, current_same_test:
     return True, msg
 
 
+def _load_any_os(f):
+    """다른 OS에서 저장한 파일 열기. [주] 리눅스에서 저장한 PosixPath는 윈도우에서 만들 수 없어 오류가 난다.
+    열 때만 잠시 '순수 경로' 클래스로 바꿔 읽는다 (경로 값은 예측에 쓰지 않는다)."""
+    swap = ("PosixPath", pathlib.PurePosixPath) if sys.platform == "win32" else ("WindowsPath", pathlib.PureWindowsPath)
+    mods = [pathlib] + ([sys.modules["pathlib._local"]] if "pathlib._local" in sys.modules else [])
+    old = [getattr(m, swap[0]) for m in mods]
+    try:
+        for m in mods:
+            setattr(m, swap[0], swap[1])
+        return joblib.load(f)
+    finally:
+        for m, o in zip(mods, old):
+            setattr(m, swap[0], o)
+
+
 def load(root: Path, version: str | None = None) -> tuple[dict, dict]:
     d = Path(root) / version if version else latest_dir(root)
     if d is None:
         raise FileNotFoundError(f"{root}에 모델이 없다. 먼저 python -m jariml.train 을 실행한다.")
-    return joblib.load(d / "artifact.joblib"), json.loads((d / "metrics.json").read_text(encoding="utf-8"))
+    return _load_any_os(d / "artifact.joblib"), json.loads((d / "metrics.json").read_text(encoding="utf-8"))

@@ -157,7 +157,7 @@ def test_artifact_has_no_path_objects(trained):
         if isinstance(x, dict):
             return any(walk(v) for v in x.values())
         return isinstance(x, PurePath)
-    assert not walk(out["artifact"]["config"])
+    assert not walk(out["artifact"]["config"]) and not walk(out["artifact"]["engine"].cfg)
 
 
 def test_recommend_mock(trained, fake_data):

@@ -115,6 +115,7 @@ def run(cfg: dict, refresh_data=False, refit_all=True, save=True, promote=True) 
         engine.fit_full(occ, cap)
         log("전체 기간 재학습 완료")
 
+    engine.cfg = plain(engine.cfg)                                   # 엔진이 들고 있는 설정 사본도 Path 제거
     artifact = {
         "interface_version": INTERFACE_VERSION, "engine": engine,
         "profile": fit_profile(occ, hol),                            # 2시간 초과 예측(평소 패턴)용, 전체 기간
