@@ -48,7 +48,9 @@ def tune_lgbm(cfg, tables, sp, n_trials=60, timeout_min=30, sample_rows=400_000)
     """Optuna(TPE)로 검증 기간 1시간 뒤 MAE(대)를 최소화하는 lgbm 설정을 찾는다.
 
     [주1] 탐색 중에는 학습 행을 40만 개만 쓴다 (시도 1번 20~30초). 최종 평가는 전체 행으로 다시 학습한다.
-    [주2] 나무 개수는 탐색하지 않는다. 검증 기간에서 50번 연속 나아지지 않으면 멈추는 조기 종료로 정한다.
+    [주2] 손실함수도 후보로 고른다: l2(MSE), l1(MAE, 평가 지표와 같음), huber(작은 오차는 MSE, 큰 오차는 MAE).
+          huber_delta는 MSE에서 MAE로 바뀌는 오차 크기(점유율 변화량, 0.01 = 1%p).
+    [주2-1] 나무 개수는 탐색하지 않는다. 검증 기간에서 50번 연속 나아지지 않으면 멈추는 조기 종료로 정한다.
     """
     import lightgbm as lgb
     import optuna
@@ -63,7 +65,10 @@ def tune_lgbm(cfg, tables, sp, n_trials=60, timeout_min=30, sample_rows=400_000)
     v1 = va[va.h == H1]
 
     def objective(trial):
-        p = {
+        p = {"objective": trial.suggest_categorical("objective", ["l2", "l1", "huber"])}
+        if p["objective"] == "huber":
+            p["huber_delta"] = trial.suggest_float("huber_delta", 0.005, 0.1, log=True)
+        p |= {
             "num_leaves": trial.suggest_int("num_leaves", 15, 255, log=True),
             "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.15, log=True),
             "min_child_samples": trial.suggest_int("min_child_samples", 20, 500, log=True),
@@ -71,7 +76,10 @@ def tune_lgbm(cfg, tables, sp, n_trials=60, timeout_min=30, sample_rows=400_000)
             "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
             "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 10, log=True),
         }
-        m = lgb.LGBMRegressor(n_estimators=3000, subsample_freq=1, verbose=-1, random_state=0, **p)
+        kw = {k: v for k, v in p.items() if k != "huber_delta"}
+        if "huber_delta" in p:
+            kw["alpha"] = p["huber_delta"]                    # LightGBM에서 huber 경계값 이름은 alpha
+        m = lgb.LGBMRegressor(n_estimators=3000, subsample_freq=1, verbose=-1, random_state=0, **kw)
         m.fit(tr[FEATURES], tr.y - tr.occ, eval_set=[(va[FEATURES], va.y - va.occ)], eval_metric="l1",
               callbacks=[lgb.early_stopping(50, verbose=False)])
         trial.set_user_attr("best_iter", int(m.best_iteration_))
@@ -79,7 +87,7 @@ def tune_lgbm(cfg, tables, sp, n_trials=60, timeout_min=30, sample_rows=400_000)
 
     study = optuna.create_study(direction="minimize", sampler=optuna.samplers.TPESampler(seed=0))
     base = cfg["engine_params"].get("lgbm", {})
-    study.enqueue_trial({"num_leaves": base.get("num_leaves", 63), "learning_rate": base.get("learning_rate", 0.05),
+    study.enqueue_trial({"objective": "l2", "num_leaves": base.get("num_leaves", 63), "learning_rate": base.get("learning_rate", 0.05),
                          "min_child_samples": 100, "subsample": 0.8, "colsample_bytree": 0.9, "reg_lambda": 1.0})  # [주3] 1번 시도 = 지금 설정
     t0 = time.perf_counter()
     study.optimize(objective, n_trials=n_trials, timeout=timeout_min * 60,

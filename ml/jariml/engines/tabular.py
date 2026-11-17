@@ -107,8 +107,10 @@ class LGBMEngine(TabularEngine):
     def make_estimator(self, n_iter=None):
         import lightgbm as lgb
         p = self.params()
+        obj = p.get("objective", "l2")
+        extra = {"alpha": p.get("huber_delta", 0.02)} if obj == "huber" else {}
         return lgb.LGBMRegressor(
-            n_estimators=n_iter or p.get("n_estimators", 2000), learning_rate=p.get("learning_rate", 0.05),
+            objective=obj, **extra, n_estimators=n_iter or p.get("n_estimators", 2000), learning_rate=p.get("learning_rate", 0.05),
             num_leaves=p.get("num_leaves", 63), min_child_samples=p.get("min_child_samples", 100),
             subsample=p.get("subsample", 0.8), subsample_freq=1, colsample_bytree=p.get("colsample_bytree", 0.9),
             reg_lambda=p.get("reg_lambda", 1.0), verbose=-1, random_state=0)
