@@ -29,17 +29,22 @@ def latest_dir(root: Path) -> Path | None:
     return Path(root) / f.read_text().strip() if f.exists() else None
 
 
-def promote_if_better(new_dir: Path, root: Path, metric: str) -> tuple[bool, str]:
-    """새 모델의 평가 지표가 운영 모델보다 작을 때만 LATEST를 바꾼다 (자동 재학습용)."""
+def promote_if_better(new_dir: Path, root: Path, metric: str, current_same_test: float | None = None) -> tuple[bool, str]:
+    """새 모델이 운영 모델보다 나을 때만 LATEST를 바꾼다 (자동 재학습용).
+
+    current_same_test: 운영 모델을 새 모델과 같은 평가 기간에서 다시 채점한 값 (train.current_on_same_test).
+    None이면 같은 기간 비교가 불가능한 경우라서, 더 최근 데이터로 학습한 새 모델로 바꾼다.
+    """
     new = json.loads((new_dir / "metrics.json").read_text(encoding="utf-8"))["summary"][metric]
     cur_dir = latest_dir(root)
-    if cur_dir and (cur_dir / "metrics.json").exists():
-        cur = json.loads((cur_dir / "metrics.json").read_text(encoding="utf-8"))["summary"][metric]
-        if new >= cur:
-            return False, f"유지: 새 모델 {metric}={new:.3f} >= 운영 {cur:.3f} ({cur_dir.name})"
-        msg = f"교체: {metric} {cur:.3f} -> {new:.3f}"
-    else:
+    if cur_dir is None:
         msg = f"첫 운영 모델: {metric}={new:.3f}"
+    elif current_same_test is None:
+        msg = f"교체 (같은 기간 비교 불가, 최신 데이터 우선): 새 모델 {metric}={new:.3f}"
+    elif new >= current_same_test:
+        return False, f"유지: 같은 평가 기간에서 새 모델 {new:.3f} >= 운영 {current_same_test:.3f} ({cur_dir.name})"
+    else:
+        msg = f"교체: 같은 평가 기간에서 운영 {current_same_test:.3f} -> 새 모델 {new:.3f}"
     (Path(root) / "LATEST").write_text(new_dir.name)
     return True, msg
 

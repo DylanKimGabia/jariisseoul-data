@@ -29,6 +29,28 @@ def log(msg):
     print(time.strftime("%H:%M:%S"), msg, flush=True)
 
 
+def current_on_same_test(cfg, occ, cap, sp, hs, base_profile, hol):
+    """운영 모델을 새 모델과 같은 평가 기간에서 다시 채점한다 (1시간 뒤 빈자리 MAE, 대).
+
+    [주] 저장된 점수끼리 비교하면 평가 기간이 달라 공정하지 않다 (기간마다 난이도가 다르다).
+    운영 모델이 이미 그 평가 기간을 학습에 쓴 경우(같은 날 재학습 등)나 주차장 구성이 달라 채점할 수 없으면 None.
+    """
+    try:
+        cur, _ = registry.load(cfg["registry"]["dir"])
+    except FileNotFoundError:
+        return None
+    if pd.Timestamp(cur["trained_until"]) >= sp.test_start:
+        log("운영 모델이 평가 기간을 이미 학습해서 같은 기간 비교 불가")
+        return None
+    try:
+        E = eval_frame(truth_frame(occ, cap, sp.test, hs, base_profile, hol), cur["engine"].predict(occ, cap, sp.test, hs))
+    except (ValueError, KeyError) as e:
+        log(f"운영 모델 재채점 불가: {e}")
+        return None
+    g = E[E.h == 12]
+    return float((np.abs(g.pred - g.y) * g.cap).mean())
+
+
 def run(cfg: dict, refresh_data=False, refit_all=True, save=True, promote=True) -> dict:
     hol, hs = cfg["preprocess"]["holidays"], cfg["target"]["horizons"]
     data_dir = resolve_data_dir(cfg, refresh_data)
@@ -105,7 +127,8 @@ def run(cfg: dict, refresh_data=False, refit_all=True, save=True, promote=True) 
         log(f"저장: {d}")
         out["model_dir"] = d
         if promote:
-            ok, msg = registry.promote_if_better(d, cfg["registry"]["dir"], cfg["registry"]["promote_metric"])
+            cur = current_on_same_test(cfg, occ, cap, sp, hs, base_profile, hol)
+            ok, msg = registry.promote_if_better(d, cfg["registry"]["dir"], cfg["registry"]["promote_metric"], cur)
             log(msg)
             out["promoted"] = ok
     return out

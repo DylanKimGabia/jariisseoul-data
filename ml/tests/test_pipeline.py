@@ -85,6 +85,7 @@ def test_predictor_outputs(trained, fake_data):
 @pytest.mark.parametrize("name", list(ENGINES))
 def test_engine_contract(name, trained):
     """엔진 규약: 등록된 모든 엔진이 같은 입력을 받아 같은 형태의 출력을 낸다."""
+    pytest.importorskip({"xgb": "xgboost", "gru": "torch"}.get(name, "numpy"))   # 운영 서버에는 비교용 라이브러리가 없다
     cfg, out = trained
     occ, cap, sp = out["tables"].occ, out["tables"].cap, out["split"]
     eng = ENGINES[name](cfg)
@@ -98,6 +99,7 @@ def test_engine_contract(name, trained):
 
 def test_benchmark_runs(trained):
     """비교 도구가 끝까지 돌고, 모든 엔진의 정확도와 응답 시간이 나온다."""
+    pytest.importorskip("torch")
     from jariml.benchmark import run_benchmark
     cfg, out = trained
     r = run_benchmark(cfg, ["gbm", "ridge", "gru"], repeat=2, data=(out["tables"], out["split"]))["result"]
@@ -115,6 +117,7 @@ def test_fee():
 
 def test_tuning_tools(trained):
     """lgbm 튜닝, 시계열 교차검증, SHAP, 확률 신뢰도가 끝까지 돈다."""
+    pytest.importorskip("optuna")
     from jariml import tuning
     from jariml.engines import ENGINES
     cfg, out = trained
@@ -130,3 +133,17 @@ def test_tuning_tools(trained):
     assert len(imp) == 16 and imp.iloc[0] >= imp.iloc[-1]
     prob, cal = tuning.calibration(eng, tables, sp, cfg)
     assert 0 <= prob["Brier"] <= 1 and len(cal) > 0
+
+
+def test_promote_compares_same_period(trained, tmp_path):
+    """교체 규칙: 같은 평가 기간 점수로 비교하고, 비교할 수 없으면 최신 모델로 바꾼다."""
+    import json
+    from jariml import registry
+    for v, m in [("old", 3.0), ("new", 4.0)]:
+        (tmp_path / v).mkdir()
+        (tmp_path / v / "metrics.json").write_text(json.dumps({"summary": {"m": m}}))
+    (tmp_path / "LATEST").write_text("old")
+    assert registry.promote_if_better(tmp_path / "new", tmp_path, "m", 4.5)[0]        # 같은 기간에선 새 모델이 더 좋음
+    (tmp_path / "LATEST").write_text("old")
+    assert not registry.promote_if_better(tmp_path / "new", tmp_path, "m", 3.5)[0]
+    assert registry.promote_if_better(tmp_path / "new", tmp_path, "m", None)[0]
