@@ -22,6 +22,7 @@ from .tmap import CAR_KMH, DETOUR, WALK_DETOUR, WALK_KMH, Tmap, haversine_m
 
 GRADES = [(0.8, "높음"), (0.5, "보통"), (0.0, "낮음")]     # [주1] 자리 있을 확률 등급 기준
 PNR_DETOUR_MAX = 1.3          # [주2] 출발지→P&R→목적지 직선거리가 출발지→목적지의 1.3배 이하면 '가는 길'로 본다
+WALK_MAX_M = 1500             # [주5] 걸어서 갈 만한 최대 거리(길 기준). 넘으면 마지막 이동을 대중교통으로 추정
 TRANSIT_KMH, TRANSIT_WAIT_MIN = 18, 10   # [주3] 대중교통 API가 없어 P&R 이후 구간은 평균 속도 18km/h + 대기, 도보 10분으로 추정
 
 KO = {"rank": "순위", "name": "주차장", "is_pnr": "환승주차장", "grade": "확률 등급", "prob": "자리 있을 확률(%)",
@@ -96,9 +97,14 @@ def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=
     cand = near.assign(kind="주변")
     # [주4] 주차장까지 운전 시간 = 목적지까지 TMAP 시간 + (주차장과 목적지의 출발지 기준 직선거리 차이) 보정
     cand["drive_s"] = main["time_s"] + (cand.from_origin - od) * DETOUR / (CAR_KMH / 3.6)
-    cand["last_leg"] = "도보"
-    cand["last_m"] = cand.to_dest * WALK_DETOUR
-    cand["last_s"] = cand.last_m / (WALK_KMH / 3.6)
+    walk_m = cand.to_dest * WALK_DETOUR
+    far = walk_m > WALK_MAX_M
+    cand["last_leg"] = np.where(far, "대중교통(추정)", "도보")
+    cand["last_m"] = np.where(far, cand.to_dest * DETOUR, walk_m)
+    cand["last_s"] = np.where(far, cand.last_m / (TRANSIT_KMH / 3.6) + TRANSIT_WAIT_MIN * 60, walk_m / (WALK_KMH / 3.6))
+    note = "" if (~far).sum() >= min(k, len(cand)) else (
+        f"목적지 도보권({WALK_MAX_M / 1000:.1f}km)에 예측 가능한 공영주차장이 {int((~far).sum())}곳뿐이라 "
+        "먼 곳은 대중교통 이동으로 추정했다")
 
     if with_pnr:                                                        # 가는 길의 환승주차장
         p = lm[(lm.is_pnr == 1) & (lm.to_dest > radius_m) & (lm.from_origin + lm.to_dest <= PNR_DETOUR_MAX * max(od, 1))]
@@ -133,7 +139,7 @@ def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=
     top = pd.concat([r[r.kind == "주변"].head(k - 1 if (r.kind == "환승").any() else k), r[r.kind == "환승"].head(1)])
 
     # ⑥ 상위 주변 주차장만 실제 도보 경로
-    walk_ids = list(top[top.kind == "주변"].index)
+    walk_ids = list(top[(top.kind == "주변") & (top.last_leg == "도보")].index)
     with ThreadPoolExecutor(max_workers=5) as ex:
         walks = list(ex.map(lambda c: tm.walk({"lat": top.at[c, "LAT"], "lon": top.at[c, "LNG"]}, d), walk_ids))
     for c, w in zip(walk_ids, walks):
@@ -157,7 +163,7 @@ def recommend(origin, dest, predictor, recent, tmap: Tmap | None = None, depart=
         "total_min": (top.total_s / 60).round(1).values, "fee": [fee(c) for c in top.index],
         "confidence": top.confidence.values, "lat": top.LAT.values, "lon": top.LNG.values,
     })
-    meta = {"origin": o, "dest": d, "depart": depart, "data_time": data_now,
+    meta = {"note": note, "origin": o, "dest": d, "depart": depart, "data_time": data_now,
             "data_lag_min": round((kst_now() - data_now).total_seconds() / 60, 1),
             "car": main, "candidates": int(len(cand)), "free_threshold": k_free, "stay_min": stay_min,
             "tmap_calls": {key: tm.calls[key] - calls0[key] for key in tm.calls}, "live": tm.live,
