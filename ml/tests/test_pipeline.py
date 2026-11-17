@@ -147,3 +147,14 @@ def test_promote_compares_same_period(trained, tmp_path):
     (tmp_path / "LATEST").write_text("old")
     assert not registry.promote_if_better(tmp_path / "new", tmp_path, "m", 3.5)[0]
     assert registry.promote_if_better(tmp_path / "new", tmp_path, "m", None)[0]
+
+
+def test_artifact_has_no_path_objects(trained):
+    """저장 파일에 Path 객체가 없어야 다른 Python 버전 서버에서도 열린다."""
+    from pathlib import PurePath
+    cfg, out = trained
+    def walk(x):
+        if isinstance(x, dict):
+            return any(walk(v) for v in x.values())
+        return isinstance(x, PurePath)
+    assert not walk(out["artifact"]["config"])

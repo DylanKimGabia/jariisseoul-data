@@ -10,6 +10,7 @@
 """
 import argparse
 import time
+from pathlib import PurePath
 
 import numpy as np
 import pandas as pd
@@ -29,6 +30,16 @@ def log(msg):
     print(time.strftime("%H:%M:%S"), msg, flush=True)
 
 
+def plain(x):
+    """설정 안의 Path를 문자열로 바꾼다. [주] Path를 그대로 저장하면 저장한 Python 버전에서만 열린다
+    (3.13에서 저장한 파일을 3.11 서버에서 열면 pathlib._local 오류)."""
+    if isinstance(x, dict):
+        return {k: plain(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return type(x)(plain(v) for v in x)
+    return str(x) if isinstance(x, PurePath) else x
+
+
 def current_on_same_test(cfg, occ, cap, sp, hs, base_profile, hol):
     """운영 모델을 새 모델과 같은 평가 기간에서 다시 채점한다 (1시간 뒤 빈자리 MAE, 대).
 
@@ -38,6 +49,9 @@ def current_on_same_test(cfg, occ, cap, sp, hs, base_profile, hol):
     try:
         cur, _ = registry.load(cfg["registry"]["dir"])
     except FileNotFoundError:
+        return None
+    except Exception as e:                                           # 다른 Python 버전에서 저장된 파일 등
+        log(f"운영 모델을 불러올 수 없어 같은 기간 비교 불가: {type(e).__name__}: {e}")
         return None
     if pd.Timestamp(cur["trained_until"]) >= sp.test_start:
         log("운영 모델이 평가 기간을 이미 학습해서 같은 기간 비교 불가")
@@ -106,7 +120,7 @@ def run(cfg: dict, refresh_data=False, refit_all=True, save=True, promote=True) 
         "profile": fit_profile(occ, hol),                            # 2시간 초과 예측(평소 패턴)용, 전체 기간
         "residuals": residuals, "lots": list(occ.columns),
         "lot_master": tables.lot_master, "fee_rule": tables.fee_rule, "confidence": confidence,
-        "config": cfg, "trained_until": occ.index.max(),
+        "config": plain(cfg), "trained_until": occ.index.max(),
     }
     metrics = {
         "summary": summary,
