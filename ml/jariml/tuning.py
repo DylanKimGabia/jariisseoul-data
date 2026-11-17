@@ -144,10 +144,12 @@ def walk_forward(cfg, tables, variants: dict, n_folds=4, fold_days=2):
 
 # ③ 예측 근거 (SHAP) ----------------------------------------------------------------------
 
-def shap_table(engine, tables, sp, cfg, n=20_000):
+def shap_table(engine, tables, sp, cfg, n=3000):
     """평가 기간 1시간 뒤 예측에서 변수별 기여도(SHAP)를 빈자리 대수로 계산한다.
 
-    [주6] LightGBM 내장 TreeSHAP(pred_contrib)을 쓴다. 별도 shap 라이브러리가 필요 없다.
+    [주6] 계산량은 행 수 × 나무 수 × 잎 수에 비례한다. 튜닝 모델(잎 254개, 나무 수천 그루)은 무거워서 3천 행만 쓴다.
+          평균 영향 순위는 3천 행이면 안정적이다.
+    [주7] LightGBM 내장 TreeSHAP(pred_contrib)을 쓴다. 별도 shap 라이브러리가 필요 없다.
     기여도는 점유율 변화량 단위라서 총면을 곱해 '대'로 바꾼다 (부호를 뒤집어 + = 빈자리 늘어남).
     """
     hol = cfg["preprocess"]["holidays"]

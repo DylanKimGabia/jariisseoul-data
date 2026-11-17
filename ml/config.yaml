@@ -43,7 +43,10 @@ model:
 engine_params:
   # gbm 외 엔진 설정 (모델 비교용). 비워 두면 각 엔진의 기본값을 쓴다.
   rf:   {n_estimators: 100, max_depth: 18, max_train_rows: 300000}   # 학습이 느려 30만 행만 사용
-  lgbm: {n_estimators: 2000, learning_rate: 0.05, num_leaves: 63}    # 검증 기간 조기 종료
+  # lgbm: 04 노트북 Optuna 52회 튜닝 결과 (11/17 데이터). 검증 1시간 MAE 3.818 → 3.619대, 평가 4.557 → 4.330대
+  #   기본값: l2 손실, num_leaves 63, learning_rate 0.05, min_child_samples 100, subsample 0.8, colsample 0.9, reg_lambda 1.0
+  lgbm: {objective: l1, n_estimators: 4000, learning_rate: 0.022565, num_leaves: 254, min_child_samples: 20,
+         subsample: 0.68547, colsample_bytree: 0.875255, reg_lambda: 3.60996}   # 나무 개수는 검증 기간 조기 종료
   xgb:  {n_estimators: 2000, learning_rate: 0.05, max_depth: 8}      # 검증 기간 조기 종료
   mlp:  {hidden: [128, 64], max_iter: 40, max_train_rows: 400000}
   gru:  {hidden: 64, emb: 8, epochs: 15, patience: 3, stride: 1}     # 최근 2시간 시계열 입력, 24칸 동시 예측
