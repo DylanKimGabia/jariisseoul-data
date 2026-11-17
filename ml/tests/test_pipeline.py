@@ -111,3 +111,22 @@ def test_fee():
     assert parking_fee(rule, "2026-10-14 09:00", 60) == 3600
     assert parking_fee(rule, "2026-10-14 09:00", 60, transfer=True) == 1800
     assert parking_fee(rule, "2026-10-18 09:00", 60) == 0          # 일요일 무료
+
+
+def test_tuning_tools(trained):
+    """lgbm 튜닝, 시계열 교차검증, SHAP, 확률 신뢰도가 끝까지 돈다."""
+    from jariml import tuning
+    from jariml.engines import ENGINES
+    cfg, out = trained
+    tables, sp = out["tables"], out["split"]
+    study = tuning.tune_lgbm(cfg, tables, sp, n_trials=3, sample_rows=5000)
+    assert len(study.trials) == 3 and study.best_value > 0
+    tuned = tuning.with_params(cfg, study.best_params)
+    df, summary = tuning.walk_forward(cfg, tables, {"기본": ("lgbm", cfg), "튜닝": ("lgbm", tuned)}, n_folds=3, fold_days=1)
+    assert len(df) >= 2 and {"기본", "튜닝"} <= set(summary.index.get_level_values(1))
+    eng = ENGINES["lgbm"](tuned)
+    eng.fit(tables.occ, tables.cap, sp)
+    imp, S, X = tuning.shap_table(eng, tables, sp, cfg, n=500)
+    assert len(imp) == 16 and imp.iloc[0] >= imp.iloc[-1]
+    prob, cal = tuning.calibration(eng, tables, sp, cfg)
+    assert 0 <= prob["Brier"] <= 1 and len(cal) > 0

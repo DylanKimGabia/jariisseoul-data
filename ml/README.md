@@ -38,6 +38,9 @@ uvicorn api.app:app --port 8000             # 예측 API → http://localhost:80
 | `tests/` | 가짜 데이터 파이프라인 테스트 |
 | `notebooks/02_model.ipynb` | 학습 결과를 표와 그래프로 보는 노트북 |
 | `notebooks/03_model_compare.ipynb` | 엔진 7개 정확도와 응답 속도 비교 |
+| `notebooks/04_lgbm_tuning.ipynb` | lgbm 튜닝, 시계열 교차검증, SHAP, 확률 신뢰도 |
+| `jariml/tuning.py` | 04 노트북 기능 |
+| `requirements-research.txt` | 비교/튜닝 노트북용 추가 라이브러리 (xgboost, torch, optuna). 운영 서버에는 필요 없음 |
 | `jariml/benchmark.py` | 모델 비교 (`python -m jariml.benchmark`) |
 | `jariml/engines/tabular.py`, `gru.py` | 비교용 엔진: ridge, rf, lgbm, xgb, mlp, gru(딥러닝) |
 | `Dockerfile` | API 컨테이너 예시 |

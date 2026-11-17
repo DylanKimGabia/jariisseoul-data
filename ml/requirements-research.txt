@@ -1,0 +1,5 @@
+# 모델 비교 / 튜닝 노트북용 (운영 서버에는 필요 없음)
+-r requirements.txt
+xgboost>=2.0
+torch>=2.1
+optuna>=3.0
