@@ -6450,3 +6450,4 @@ collected_at,status,count,message
 2026-11-18 12:05:01,ok,122,total=122
 2026-11-18 12:10:00,ok,122,total=122
 2026-11-18 12:15:00,ok,122,total=122
+2026-11-18 12:20:00,error,0,Expecting value: line 1 column 1 (char 0)
