@@ -3401,3 +3401,4 @@ collected_at,status,ok,fail,message
 2026-11-19 09:25:01,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=78 parking=62 
 2026-11-19 09:35:01,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=75 parking=61 
 2026-11-19 09:45:02,partial,104,1,population=104 forecast=1248 road=104 weather=102 commercial=72 parking=62 POI115부터 17곳:시간초과로 건너뜀
+2026-11-19 09:55:01,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=75 parking=62 
