@@ -3413,3 +3413,4 @@ collected_at,status,ok,fail,message
 2026-11-19 11:25:01,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=76 parking=62 
 2026-11-19 11:35:01,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=78 parking=62 
 2026-11-19 11:45:07,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=79 parking=62 
+2026-11-19 11:55:01,partial,120,1,population=120 forecast=1440 road=120 weather=118 commercial=80 parking=61 POI114:Expecting value: line 1 column 1 (char 0)
