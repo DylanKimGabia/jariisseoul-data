@@ -3708,3 +3708,4 @@ collected_at,status,ok,fail,message
 2026-11-21 11:55:02,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=81 parking=62 
 2026-11-21 12:05:02,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=78 parking=62 
 2026-11-21 12:15:02,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=82 parking=61 
+2026-11-21 12:21:56,error,0,15,"population=0 forecast=0 road=0 weather=0 commercial=0 parking=0 POI001:HTTPConnectionPool(host='openapi.seoul.go.kr', port=8088): M|POI002:HTTPConnectionPool(host='openapi.seoul.go.kr', port=8088): M|POI003:HTTPConnectionPool(host='openapi.seoul.go.kr', port=8088): M|POI004:HTTPConnectionPool(host='openapi.seoul.go.kr', port=8088): M|POI005:HTTPConnectionPool(host='openapi.seoul.go.kr', port=8088)"
