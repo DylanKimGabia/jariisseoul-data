@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>자리있서울 분석 보고서</title>
+<meta name="description" content="도착 시점 공영주차장 빈자리 예측: 데이터 수집, 시계열 분석, 모델 설계와 성능">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root {
+    --bg: #ffffff; --panel: #f7f5fc; --ink: #1d1b24; --sub: #5d5870; --line: #e6e1f2;
+    --accent: #7e57c2; --accent-soft: #ede7f6; --accent-mid: #b39ddb; --good: #2e7d32;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+         font-size: 16px; line-height: 1.75; -webkit-font-smoothing: antialiased; }
+  .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); max-width: 1240px; margin: 0 auto; }
+  nav { position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 32px 20px 32px 24px; border-right: 1px solid var(--line); font-size: 14px; }
+  nav .brand { font-weight: 800; font-size: 18px; color: var(--accent); margin-bottom: 4px; }
+  nav .tag { color: var(--sub); font-size: 12.5px; margin-bottom: 20px; }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav li { margin: 2px 0; }
+  nav a { color: var(--ink); text-decoration: none; display: block; padding: 3px 8px; border-radius: 6px; }
+  nav a:hover, nav a.on { background: var(--accent-soft); color: var(--accent); }
+  nav ol ol a { padding-left: 22px; color: var(--sub); font-size: 13px; }
+  main { padding: 40px 48px 96px; min-width: 0; }
+  header.hero { padding: 8px 0 28px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  .hero h1 { font-size: 34px; line-height: 1.3; margin: 0 0 10px; letter-spacing: -0.02em; }
+  .hero p { color: var(--sub); margin: 0; }
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 24px 0 4px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .kpi b { display: block; font-size: 26px; color: var(--accent); letter-spacing: -0.02em; line-height: 1.25; }
+  .kpi span { font-size: 13px; color: var(--sub); line-height: 1.45; display: block; margin-top: 4px; }
+  section { padding-top: 36px; }
+  h2 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 .no { color: var(--accent); margin-right: 8px; }
+  h3 { font-size: 19px; margin: 32px 0 6px; }
+  .lead { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0 18px; font-weight: 600; }
+  p { margin: 10px 0; }
+  ul, ol.plain { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  figure { margin: 18px 0 22px; }
+  figure img { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  figcaption { font-size: 13px; color: var(--sub); margin-top: 6px; }
+  .tbl { overflow-x: auto; margin: 12px 0 18px; border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; background: #fff; }
+  th, td { padding: 8px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { background: var(--panel); font-weight: 700; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.hl td { background: #f6f1ff; font-weight: 700; }
+  .link { font-size: 13px; color: var(--accent); }
+  .eq { font-family: "Pretendard", sans-serif; background: var(--panel); border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: 15px; }
+  .note { color: var(--sub); font-size: 14px; }
+  code { background: var(--panel); padding: 1px 6px; border-radius: 5px; font-size: 0.92em; }
+  a { color: var(--accent); }
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--sub); font-size: 13px; }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 20px 16px; }
+    nav ol ol { display: none; }
+    main { padding: 24px 16px 64px; }
+    .hero h1 { font-size: 26px; }
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div class="brand">자리있서울</div>
+  <div class="tag">도착 시점 공영주차장 빈자리 예측<br>분석 보고서</div>
+  <ol>
+    <li><a href="#s0">0. 요약</a></li>
+    <li><a href="#s1">1. 문제 정의</a></li>
+    <li><a href="#s2">2. 데이터 수집</a></li>
+    <li><a href="#s3">3. 데이터 전처리</a></li>
+    <li><a href="#s4">4. 탐색적 분석 (EDA)</a>
+      <ol>
+        <li><a href="#s4-1">4.1 시간대, 요일 패턴</a></li>
+        <li><a href="#s4-2">4.2 시계열 분해 (Prophet, Fourier)</a></li>
+        <li><a href="#s4-3">4.3 Residual과 ACF</a></li>
+        <li><a href="#s4-4">4.4 주차장 유형 (KMeans)</a></li>
+        <li><a href="#s4-5">4.5 외부 데이터 검증</a></li>
+      </ol></li>
+    <li><a href="#s5">5. 모델 설계</a></li>
+    <li><a href="#s6">6. 모델 비교와 선정</a></li>
+    <li><a href="#s7">7. 모델 고도화</a>
+      <ol>
+        <li><a href="#s7-1">7.1 Hyperparameter 튜닝</a></li>
+        <li><a href="#s7-2">7.2 Walk-forward 교차검증</a></li>
+        <li><a href="#s7-3">7.3 예측 근거 (SHAP)</a></li>
+        <li><a href="#s7-4">7.4 확률 신뢰도</a></li>
+      </ol></li>
+    <li><a href="#s8">8. 최종 성능</a></li>
+    <li><a href="#s9">9. 서비스 적용</a></li>
+    <li><a href="#s10">10. 한계와 향후 계획</a></li>
+    <li><a href="#appendix">부록</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <h1>도착했을 때 자리가 있을까:<br>서울 공영주차장 빈자리 예측</h1>
+  <p>팀 자리있서울 (MacGyver) / 2026.11.21 / 데이터 기간 2026.10.26 ~ 2026.11.21</p>
+</header>
+
+<!-- 0 -->
+<section id="s0">
+  <h2><span class="no">0</span>요약</h2>
+  <div class="lead">지금 빈자리를 보고 출발하면 1시간 뒤 도착할 때 평균 12대가 달라져 있다. 우리는 서울시 공영주차장 57곳의 빈자리를 도착 시점 기준으로 예측해 이 차이를 3.6대로 줄였다.</div>
+  <div class="kpis">
+    <div class="kpi"><b>3.63대</b><span>1시간 뒤 빈자리 평균 오차 (MAE)</span></div>
+    <div class="kpi"><b>2.26%</b><span>1시간 뒤 오차율 (총면 대비)</span></div>
+    <div class="kpi"><b>-70%</b><span>지금 빈자리를 그대로 쓸 때 대비 오차 감소</span></div>
+    <div class="kpi"><b>2~5초</b><span>출발지, 목적지 입력부터 추천 5곳까지</span></div>
+  </div>
+  <ul>
+    <li><b>데이터</b>: 서울 열린데이터광장 실시간 API를 25.6일 동안 5분마다 직접 수집 (7,312회, 성공률 99.3%, 89만 행).</li>
+    <li><b>분석</b>: 점유율 변동의 98.7%는 "평소 패턴(하루 주기, 요일 주기)"이고, 남은 "오늘이 평소와 다른 정도"는 half-life 3시간 20분으로 이어진다. 이 구조를 그대로 모델에 옮겼다.</li>
+    <li><b>모델</b>: ML 5종, DL 2종, 기준선 2개를 같은 조건으로 비교해 LightGBM을 선택하고, Optuna로 튜닝했다. 4개 기간 교차검증에서 모두 개선됐다.</li>
+    <li><b>서비스</b>: TMAP으로 도착 시각을 계산하고, 그 시점의 예상 빈자리와 자리 있을 확률로 목적지 주변 주차장 5곳을 추천한다. 음성으로도 검색할 수 있다.</li>
+  </ul>
+</section>
+
+<!-- 1 -->
+<section id="s1">
+  <h2><span class="no">1</span>문제 정의</h2>
+  <div class="lead">서울시가 제공하는 정보는 "지금 빈자리"다. 하지만 운전자가 필요한 것은 "도착했을 때 빈자리"이고, 둘의 차이는 출근 시간에 가장 크다.</div>
+  <p>예측 대상 57곳 전체에서, 지금 빈자리와 도착 시점 빈자리가 얼마나 다른지 실제 데이터로 계산했다.</p>
+  <div class="tbl"><table>
+    <tr><th>도착까지</th><th class="n">평균 변화</th><th class="n">10대 이상 바뀐 비율</th></tr>
+    <tr><td>30분</td><td class="n">6.4대</td><td class="n">15.2%</td></tr>
+    <tr class="hl"><td>1시간</td><td class="n">12.0대</td><td class="n">23.6%</td></tr>
+    <tr><td>2시간</td><td class="n">22.6대</td><td class="n">33.6%</td></tr>
+  </table></div>
+  <figure><img src="assets/1_problem.png" alt="주차장별 하루 빈자리와 출발 시각별 1시간 뒤 변화" loading="lazy">
+    <figcaption>위: 1시간 변화가 가장 큰 3곳(반포천 70.0대, 종묘 63.9대, 동대문 61.0대)과 가장 작은 3곳(대림역2 0.2대, 옥수역 0.3대, 신월4동 0.9대)의 하루. 아래: 출발 시각별 1시간 뒤 평균 변화 (57곳 평균).</figcaption></figure>
+  <ul>
+    <li>7시 출발이 평균 24.0대로 가장 크고, 17~19시도 20대 안팎이다. 출퇴근 시간에 "지금 빈자리"가 가장 믿기 어렵다.</li>
+    <li>주차장마다 변동 크기가 크게 다르다. 대형 주차장은 하루에 수백 대가 오가고, 일부 소형 주차장은 거의 움직이지 않는다 (4.4장).</li>
+    <li>목표: <b>도착 시각(5분 ~ 2시간 뒤)의 빈자리와 자리 있을 확률을 예측</b>해, 이 오차를 줄인다.</li>
+  </ul>
+</section>
+
+<!-- 2 -->
+<section id="s2">
+  <h2><span class="no">2</span>데이터 수집</h2>
+  <div class="lead">서울시 API는 현재 값만 주고 과거 기록을 주지 않는다. 그래서 GitHub Actions로 5분마다 직접 쌓았다.</div>
+  <h3>2.1 데이터 출처</h3>
+  <div class="tbl"><table>
+    <tr><th>데이터</th><th>출처</th><th>주기</th><th>사용</th></tr>
+    <tr><td>공영주차장 실시간 주차 대수</td><td>서울 열린데이터광장 GetParkingInfo</td><td>5분</td><td>모델 입력</td></tr>
+    <tr><td>주차장 기본 정보 (요금, 운영 시간)</td><td>서울 열린데이터광장</td><td>하루 1회</td><td>요금 계산, 전처리</td></tr>
+    <tr><td>주차장 좌표</td><td>공영주차장 안내 GetParkInfo</td><td>1회</td><td>추천 (거리)</td></tr>
+    <tr><td>서울 실시간 도시데이터 7종 (인구, 인구 예측, 날씨, 도로, 상권, 문화행사, 주변 주차장)</td><td>서울 열린데이터광장 citydata</td><td>10분</td><td>효과 검증 후 미사용 (4.5장)</td></tr>
+    <tr><td>환승주차장 21곳, 50% 감면</td><td>서울시설공단 안내</td><td>수동 정리</td><td>환승주차장 추천, 요금</td></tr>
+  </table></div>
+  <h3>2.2 수집 현황</h3>
+  <div class="tbl"><table>
+    <tr><th>항목</th><th>값</th></tr>
+    <tr><td>수집 기간</td><td>10/26 22:40 ~ 11/21 12:15 (25.6일)</td></tr>
+    <tr><td>주차 수집 횟수</td><td>7,312회 (예정 7,364회), 성공률 <b>99.3%</b></td></tr>
+    <tr><td>가장 긴 수집 공백</td><td>160분 (10/30, 1회)</td></tr>
+    <tr><td>주차장 수</td><td>126곳</td></tr>
+    <tr><td>원본 행 수</td><td>892,544행</td></tr>
+  </table></div>
+  <figure><img src="assets/2_collection.png" alt="하루 수집 횟수" loading="lazy">
+    <figcaption>날짜별 수집 횟수. 정상은 하루 288회(5분 × 24시간). 첫날과 마지막 날은 하루가 다 차지 않았다.</figcaption></figure>
+</section>
+
+<!-- 3 -->
+<section id="s3">
+  <h2><span class="no">3</span>데이터 전처리</h2>
+  <div class="lead">믿을 수 있는 데이터만 남긴다: 126곳 중 57곳을 예측 대상으로 정하고, 15분 이하 짧은 공백만 채운다.</div>
+  <h3>3.1 예측 대상 선정</h3>
+  <div class="tbl"><table>
+    <tr><th>구분</th><th class="n">주차장 수</th><th>기준</th></tr>
+    <tr><td>미연계</td><td class="n">17</td><td>실시간 연계가 안 된 주차장 (빈자리 정보 없음)</td></tr>
+    <tr><td>버스전용</td><td class="n">11</td><td>버스 전용 주차장 (일반 승용차 이용 불가)</td></tr>
+    <tr><td>20면 미만</td><td class="n">27</td><td>1대 변화가 너무 커서 예측 의미가 작음</td></tr>
+    <tr><td>센서 멈춤</td><td class="n">12</td><td>하루 점유율 변동폭 중앙값 3%p 미만</td></tr>
+    <tr><td>센서 이상</td><td class="n">2</td><td>수집 기간 전체에서 값 종류 4개 미만</td></tr>
+    <tr class="hl"><td>예측 대상</td><td class="n">57</td><td>위 기준을 모두 통과</td></tr>
+  </table></div>
+  <figure><img src="assets/3_selection.png" alt="예측 대상 선정" loading="lazy"></figure>
+  <h3>3.2 공백 처리</h3>
+  <ul>
+    <li>5분 격자(시각 × 주차장) 419,748칸 중 원본 빈 칸은 2,964칸(<b>0.71%</b>)이다.</li>
+    <li>15분 이하 공백 855칸만 앞뒤 값으로 보간했다. 나머지 2,109칸(0.50%)은 값을 지어내지 않고 비워 두었다.</li>
+  </ul>
+  <h3>3.3 테이블 설계</h3>
+  <figure><img src="assets/3_erd.png" alt="ERD" loading="lazy">
+    <figcaption>OCC_5MIN (점유 시계열), LOT_MASTER (주차장 기본 정보), FEE_RULE (요금 규칙). 주차장 코드(PKLT_CD)로 연결된다.</figcaption></figure>
+  <h3>3.4 데이터 한계</h3>
+  <ul>
+    <li><b>집계 초기화</b>: 5분 만에 총면의 30% 넘게 바뀐 경우가 10곳에서 53회 있었다. 반포천은 21회로 거의 매일 새벽 한 번 집계를 초기화하는 것으로 보인다. 전체 칸의 0.01% 수준이다.</li>
+    <li><b>소형 주차장</b>: 31면 주차장은 1대가 3.2%p라 "센서 멈춤" 기준을 통과한다. 하루에 1~2대만 오르내리는 곳(대림역2, 옥수역)이 남아 있다.</li>
+  </ul>
+</section>
+
+<!-- 4 -->
+<section id="s4">
+  <h2><span class="no">4</span>탐색적 분석 (EDA)</h2>
+  <div class="lead">핵심 발견 두 가지: ① 점유율 변동의 98.7%는 평소 패턴(하루 주기, 요일 주기)이다. ② 남은 "오늘이 평소와 다른 정도"는 몇 시간 이어진다. 날씨, 인구 같은 외부 데이터는 도움이 되지 않는다.</div>
+
+  <h3 id="s4-1">4.1 시간대, 요일 패턴</h3>
+  <div class="tbl"><table>
+    <tr><th></th><th class="n">평일</th><th class="n">주말, 공휴일</th></tr>
+    <tr><td>가장 붐빌 때 점유율</td><td class="n">69.1% (12:55)</td><td class="n">58.9% (14:10)</td></tr>
+    <tr><td>가장 한산할 때 점유율</td><td class="n">37.0% (5:15)</td><td class="n">38.2% (4:40)</td></tr>
+  </table></div>
+  <figure><img src="assets/4_1_pattern.png" alt="시간대, 요일 패턴" loading="lazy"></figure>
+  <ul>
+    <li>평일은 6시부터 빠르게 차서 13시 무렵 정점이다. 주말은 정점이 10%p 낮고 1시간 15분 늦다.</li>
+    <li>밤에도 37~38%가 차 있다. 밤새 세워 두는 차(정기권, 거주자)가 많다.</li>
+    <li>월~금은 거의 같은 모양이고, 토요일은 중간, 일요일이 가장 한산하다.</li>
+  </ul>
+
+  <h3 id="s4-2">4.2 시계열 분해 (Prophet, Fourier)</h3>
+  <p>57곳 전체 점유율(전체 주차 대수 / 전체 총면)을 추세, 하루 주기, 요일 주기, 휴일, residual로 분해했다.</p>
+  <div class="eq">전체 점유율 = 추세 + 하루 주기 (평일 / 주말 따로) + 주간 주기 + 휴일 + residual</div>
+  <div class="tbl"><table>
+    <tr><th>Prophet 설정</th><th class="n">R² (설명력)</th><th class="n">residual MAE</th><th class="n">residual std</th></tr>
+    <tr><td>기본 (하루 주기 1개)</td><td class="n">93.72%</td><td class="n">2.83%p (448대)</td><td class="n">3.74%p</td></tr>
+    <tr class="hl"><td>평일 / 주말 하루 주기 분리</td><td class="n">98.72%</td><td class="n">1.18%p (186대)</td><td class="n">1.69%p</td></tr>
+  </table></div>
+  <figure><img src="assets/4_2_prophet.png" alt="Prophet 분해" loading="lazy">
+    <figcaption>위: 실제와 두 Prophet 모델 (최근 7일). 아래 왼쪽: 평일과 주말의 하루 주기. 아래 오른쪽: 요일 주기.</figcaption></figure>
+  <ul>
+    <li>평일과 주말은 하루 모양 자체가 다르다. 평일은 하루 43%p, 주말은 29%p 출렁인다. 하나의 하루 주기로 묶으면 residual이 2.4배가 된다.</li>
+    <li>요일 주기는 화~목이 가장 붐비고(+3~4%p), 일요일이 가장 한산하다(-7%p). 수집 기간에 공휴일이 없어 휴일 성분은 0이다.</li>
+  </ul>
+  <p>Prophet은 계절성을 Fourier series(sin, cos의 합)로 표현한다. 그래서 FFT로 데이터에 실제로 어떤 주기가 있는지 따로 측정했다.</p>
+  <div class="tbl"><table>
+    <tr><th>주기</th><th>정체</th><th class="n">variance share</th></tr>
+    <tr class="hl"><td>24h</td><td>하루 주기</td><td class="n">66.8%</td></tr>
+    <tr><td>28h</td><td>sideband (24h - weekly)</td><td class="n">6.5%</td></tr>
+    <tr><td>168h</td><td>주간 주기</td><td class="n">6.3%</td></tr>
+    <tr><td>12h</td><td>하루 주기의 2nd harmonic</td><td class="n">4.3%</td></tr>
+    <tr><td>21h</td><td>sideband (24h + weekly)</td><td class="n">3.6%</td></tr>
+    <tr><td>34h</td><td>sideband (24h - 2×weekly)</td><td class="n">2.1%</td></tr>
+  </table></div>
+  <figure><img src="assets/4_2_fourier.png" alt="FFT power spectrum과 Fourier order별 R²" loading="lazy">
+    <figcaption>왼쪽: FFT power spectrum (Parseval 정리로 주기별 variance share 계산). 오른쪽: daily harmonics 개수(Fourier order K)별 R².</figcaption></figure>
+  <ul>
+    <li>28h, 21h 같은 봉우리는 실제 생활 주기가 아니라, 하루 주기의 진폭이 요일마다 바뀌어서 생기는 sideband다 (1/(1/24 ∓ 1/168) = 28.0h, 21.0h). FFT가 Prophet과 독립적으로 "평일과 주말은 하루 모양이 다르다"를 보여준다.</li>
+    <li>하루 주기는 Fourier order 4(24h, 12h, 8h, 6h)면 충분하다. 그 뒤로는 R²가 0.1%p도 오르지 않는다.</li>
+    <li>같은 order에서도 평일 / 주말 분리만으로 R²가 85.1%에서 99.2%로 오른다. 복잡도보다 구조가 중요하다.</li>
+  </ul>
+
+  <h3 id="s4-3">4.3 Residual과 ACF</h3>
+  <p>평소 패턴으로 설명하고 남은 residual은 "오늘이 평소와 다른 정도"다.</p>
+  <div class="tbl"><table>
+    <tr><th>residual 통계</th><th class="n">값</th></tr>
+    <tr><td>MAE</td><td class="n">1.17%p (약 185대)</td></tr>
+    <tr><td>std</td><td class="n">1.68%p</td></tr>
+    <tr><td>|residual| ≤ 1%p / ≤ 2%p</td><td class="n">61.1% / 80.6%</td></tr>
+    <tr><td>skewness / excess kurtosis</td><td class="n">-0.18 / 1.80</td></tr>
+  </table></div>
+  <div class="tbl"><table>
+    <tr><th>lag</th><th class="n">5m</th><th class="n">30m</th><th class="n">1h</th><th class="n">2h</th><th class="n">4h</th><th class="n">12h</th><th class="n">24h</th></tr>
+    <tr><td>ACF</td><td class="n">0.987</td><td class="n">0.921</td><td class="n">0.853</td><td class="n">0.708</td><td class="n">0.384</td><td class="n">-0.391</td><td class="n">-0.064</td></tr>
+  </table></div>
+  <figure><img src="assets/4_3_residual.png" alt="Residual 분포와 ACF" loading="lazy"></figure>
+  <ul>
+    <li><b>지속성</b>: half-life 3시간 20분, 6시간 30분 뒤 95% band 안으로 들어간다. 지금 평소보다 붐비면 1~2시간 뒤에도 붐빈다. 그래서 "지금의 차이"로 1~2시간 뒤를 보정할 수 있다.</li>
+    <li><b>Ljung-Box p ≈ 0</b>: residual은 white noise가 아니다. 평소 패턴 너머에 예측 가능한 구조가 남아 있다. 이것이 ML 모델이 필요한 통계적 근거다.</li>
+    <li><b>두꺼운 꼬리</b>(excess kurtosis 1.80): 대부분 작게 틀리고 가끔 크게 틀린다. 큰 오차에 끌려가지 않는 l1 loss가 적합하다 (7.1장에서 Optuna가 l1을 선택).</li>
+    <li>24h ACF는 -0.06으로 어제의 이상이 오늘로 넘어오지 않는다.</li>
+  </ul>
+
+  <h3 id="s4-4">4.4 주차장 유형 (KMeans)</h3>
+  <p>주차장마다 평일 하루 모양(시간대별 평균 점유율 24개 값)으로 KMeans clustering을 했다. k는 silhouette score로 정했다.</p>
+  <div class="tbl"><table>
+    <tr><th>k</th><th class="n">2</th><th class="n">3</th><th class="n">4</th><th class="n">5</th><th class="n">6</th></tr>
+    <tr><td>silhouette</td><td class="n">0.318</td><td class="n">0.367</td><td class="n"><b>0.379</b></td><td class="n">0.345</td><td class="n">0.326</td></tr>
+  </table></div>
+  <div class="tbl"><table>
+    <tr><th>유형</th><th class="n">주차장 수</th><th class="n">정점</th><th class="n">정점 / 최저 점유율</th><th>대표</th></tr>
+    <tr><td>A. 업무형 혼잡 (낮 정점, 밤 여유)</td><td class="n">20</td><td class="n">13시</td><td class="n">87.5% / 25.4%</td><td>구파발역, 신설동, 영등포구청역</td></tr>
+    <tr><td>B. 업무형 여유 (낮에도 50% 미만)</td><td class="n">13</td><td class="n">14시</td><td class="n">44.9% / 15.6%</td><td>구로디지털단지역, 당산노외</td></tr>
+    <tr><td>C. 상시 혼잡 (밤에도 60% 이상)</td><td class="n">11</td><td class="n">12시</td><td class="n">87.0% / 67.5%</td><td>장안2동, 동작대교, 학여울역</td></tr>
+    <tr><td>D. 주거형 (저녁, 밤 정점)</td><td class="n">13</td><td class="n">21시</td><td class="n">55.5% / 45.5%</td><td>봉천복개3, 신대방역, 동구로</td></tr>
+  </table></div>
+  <figure><img src="assets/4_4_cluster.png" alt="주차장 유형" loading="lazy"></figure>
+  <ul>
+    <li>같은 오후 1시라도 A는 88%, B는 44%다. 시각만으로는 부족해서, 주차장마다 평소 패턴을 따로 계산해 모델 변수로 넣었다.</li>
+    <li>silhouette 0.379는 중간 정도의 분리다. 유형을 변수로 쓰기보다, 주차장별 평소 패턴을 그대로 쓰는 것이 더 정확하다.</li>
+  </ul>
+
+  <h3 id="s4-5">4.5 외부 데이터 효과 검증</h3>
+  <p>도시데이터 6종을 하나씩 더하는 add-one, 전부 넣고 하나씩 빼는 leave-one-out ablation으로 1시간 뒤 MAE를 비교했다. 도시데이터는 수집된 시각 이후에만 쓰게 해서 미래 정보가 섞이지 않게 했다.</p>
+  <div class="tbl"><table>
+    <tr><th>입력</th><th class="n">1시간 뒤 MAE</th><th class="n">주차장 데이터만 대비</th></tr>
+    <tr class="hl"><td>주차장 데이터만</td><td class="n">3.876대</td><td class="n">기준</td></tr>
+    <tr><td>+ 도시데이터 6종 전부</td><td class="n">4.060대</td><td class="n">+4.7%</td></tr>
+    <tr><td>+ 날씨</td><td class="n">4.080대</td><td class="n">+5.3%</td></tr>
+    <tr><td>+ 상권 / 인구 예측 / 도로 / 인구</td><td class="n">3.880 ~ 3.896대</td><td class="n">+0.1 ~ +0.5%</td></tr>
+    <tr><td>+ 문화행사</td><td class="n">3.873대</td><td class="n">-0.1%</td></tr>
+    <tr><td>전부 - 날씨</td><td class="n">3.886대</td><td class="n">+0.3%</td></tr>
+  </table></div>
+  <figure><img src="assets/4_5_ablation.png" alt="외부 데이터 ablation" loading="lazy"></figure>
+  <ul>
+    <li>도시데이터를 전부 넣으면 오히려 4.7% 나빠지고, 원인은 거의 날씨다. 수집 기간에 비 온 날이 적어 우연한 패턴을 외우는 overfitting이다.</li>
+    <li>결론: <b>주차장 데이터만 쓴다.</b> 평소 패턴과 지금 상태가 이미 대부분을 설명한다.</li>
+  </ul>
+</section>
+
+<!-- 5 -->
+<section id="s5">
+  <h2><span class="no">5</span>모델 설계</h2>
+  <div class="lead">모델 = 평소 패턴 + 오늘의 차이 보정. 입력 변수 16개는 모두 4장의 분석 결과에서 나왔다.</div>
+  <h3>5.1 예측 문제</h3>
+  <div class="tbl"><table>
+    <tr><th>항목</th><th>정의</th><th>근거</th></tr>
+    <tr><td>예측 대상</td><td>도착 시각의 점유율 변화량 (도착 시 - 지금)</td><td>4.3: 지금 상태가 이어지므로 변화량만 배우면 쉽다</td></tr>
+    <tr><td>예측 거리</td><td>5분 ~ 2시간 (5분 단위)</td><td>TMAP 이동 시간 대부분이 2시간 안, 2h ACF 0.71</td></tr>
+    <tr><td>출력 1</td><td>예상 빈자리 = 총면 × (1 - 예측 점유율)</td><td>사용자가 바로 이해하는 단위</td></tr>
+    <tr><td>출력 2</td><td>자리 있을 확률 = P(빈자리 ≥ 3대)</td><td>validation residual 분포로 계산 (7.4장)</td></tr>
+    <tr><td>출력 3</td><td>예측 신뢰도 (높음 / 보통 / 낮음)</td><td>주차장별 validation 1시간 뒤 오차율 2% / 4% 기준</td></tr>
+  </table></div>
+  <h3>5.2 입력 변수 16개</h3>
+  <div class="tbl"><table>
+    <tr><th>변수</th><th>의미</th><th>근거</th></tr>
+    <tr><td>p_delta, p_fut, p_now</td><td>주차장별 평소 변화량, 평소 점유율 (도착, 지금)</td><td>4.2, 4.4: 평소 패턴이 변동의 98.7%, 주차장마다 모양이 다름</td></tr>
+    <tr><td>tod, ttod</td><td>지금 시각, 도착 시각</td><td>4.2: 24h 주기가 variance의 66.8%</td></tr>
+    <tr><td>dow, off, toff</td><td>요일, 지금 / 도착 휴일 여부</td><td>4.2: weekly 주기, 평일 / 주말 분리로 R² 85% → 99%</td></tr>
+    <tr><td>occ, gap</td><td>지금 점유율, 오늘 - 평소 차이</td><td>4.3: residual half-life 3시간 20분</td></tr>
+    <tr><td>d1, d3, d6, d12</td><td>최근 5, 15, 30, 60분 변화</td><td>단기 추세 (들어오는 중인지, 빠지는 중인지)</td></tr>
+    <tr><td>h</td><td>예측 거리</td><td>1장: 멀수록 변화가 큼</td></tr>
+    <tr><td>cap</td><td>총면</td><td>4.4: 규모와 유형에 따라 패턴이 다름</td></tr>
+  </table></div>
+  <h3>5.3 평가 설계</h3>
+  <div class="tbl"><table>
+    <tr><th>구간</th><th>기간</th><th class="n">일수</th><th>용도</th></tr>
+    <tr><td>train</td><td>10/26 ~ 11/13</td><td class="n">18.0</td><td>모델 학습</td></tr>
+    <tr><td>validation</td><td>11/14 ~ 11/17</td><td class="n">3.9</td><td>early stopping, 튜닝, 확률 분포</td></tr>
+    <tr><td>test</td><td>11/18 ~ 11/21</td><td class="n">3.4</td><td>최종 성능 평가 (한 번만)</td></tr>
+  </table></div>
+  <figure><img src="assets/5_split.png" alt="시간 순 분할" loading="lazy">
+    <figcaption>미래 데이터로 과거를 맞히지 않도록 시간 순으로 나누고, 구간 사이에 2시간 gap을 두었다.</figcaption></figure>
+  <p>지표는 MAE(대, 모델 선택 기준), RMSE(큰 오차), MSLE(작은 주차장의 상대 오차), Brier(확률 정확도) 네 가지를 보고, 기준선 두 개와 비교했다.</p>
+  <ul>
+    <li><b>지금값 유지</b>: 지금 빈자리가 그대로 간다고 본다 (서울시 앱 방식).</li>
+    <li><b>지금 + 평소 변화</b>: 지금 값에 평소 그 시간대의 변화량을 더한다. 모델이 넘어야 할 진짜 기준이다.</li>
+  </ul>
+</section>
+
+<!-- 6 -->
+<section id="s6">
+  <h2><span class="no">6</span>모델 비교와 선정</h2>
+  <div class="lead">9개를 같은 기간, 같은 지표로 비교했다. 정확도가 같으면 빠르고 가벼운 쪽을 고른다: LightGBM.</div>
+  <div class="tbl"><table>
+    <tr><th>모델</th><th>종류</th><th class="n">MAE 30분</th><th class="n">MAE 1시간</th><th class="n">MAE 2시간</th><th class="n">1위 대비</th><th class="n">예측 응답</th><th class="n">학습</th></tr>
+    <tr><td>gbm</td><td>ML (boosting)</td><td class="n">3.19</td><td class="n">4.54</td><td class="n">6.45</td><td class="n">0.0%</td><td class="n">131ms</td><td class="n">161초</td></tr>
+    <tr class="hl"><td>lgbm</td><td>ML (boosting)</td><td class="n">3.19</td><td class="n">4.56</td><td class="n">6.55</td><td class="n">+0.5%</td><td class="n">97ms</td><td class="n">30초</td></tr>
+    <tr><td>xgb</td><td>ML (boosting)</td><td class="n">3.19</td><td class="n">4.57</td><td class="n">6.53</td><td class="n">+0.8%</td><td class="n">108ms</td><td class="n">31초</td></tr>
+    <tr><td>rf</td><td>ML (tree)</td><td class="n">3.19</td><td class="n">4.66</td><td class="n">6.91</td><td class="n">+2.7%</td><td class="n">78ms</td><td class="n">78초</td></tr>
+    <tr><td>mlp</td><td>DL</td><td class="n">3.52</td><td class="n">4.79</td><td class="n">6.65</td><td class="n">+5.5%</td><td class="n">133ms</td><td class="n">142초</td></tr>
+    <tr><td>gru</td><td>DL (시계열)</td><td class="n">3.54</td><td class="n">5.08</td><td class="n">7.16</td><td class="n">+12.0%</td><td class="n">135ms</td><td class="n">443초</td></tr>
+    <tr><td>지금 + 평소 변화</td><td>기준선</td><td class="n">3.39</td><td class="n">5.16</td><td class="n">7.80</td><td class="n">+13.8%</td><td class="n"></td><td class="n"></td></tr>
+    <tr><td>ridge</td><td>ML (선형)</td><td class="n">3.82</td><td class="n">5.33</td><td class="n">7.73</td><td class="n">+17.5%</td><td class="n">119ms</td><td class="n">3초</td></tr>
+    <tr><td>지금값 유지</td><td>기준선</td><td class="n">6.16</td><td class="n">11.53</td><td class="n">21.82</td><td class="n">+154.1%</td><td class="n"></td><td class="n"></td></tr>
+  </table></div>
+  <p class="note">MAE 단위는 대. 평가 기간 11/14 ~ 11/17 (11/17 실행, 튜닝 전 기본 설정). 예측 응답 = 57곳을 한 번에 예측하는 시간.</p>
+  <figure><img src="assets/6_compare.png" alt="모델 비교" loading="lazy"></figure>
+  <ul>
+    <li>boosting 3종(gbm, lgbm, xgb)이 상위권이고 차이는 1% 안이다.</li>
+    <li>lgbm은 1위와 0.5% 차이지만 학습이 5.5배 빠르고(161초 → 30초), 응답이 25% 빠르고, 모델이 40% 작다. 매일 재학습하는 서비스에 가장 효율적이다.</li>
+    <li>DL은 27일 규모 데이터에서 tree 모델보다 나빴다(GRU +12%). ridge는 기준선보다도 나빠서, 주차 수요가 비선형이라는 근거가 된다.</li>
+  </ul>
+</section>
+
+<!-- 7 -->
+<section id="s7">
+  <h2><span class="no">7</span>모델 고도화</h2>
+  <div class="lead">튜닝으로 5% 개선했고, 4개 기간 모두에서 확인했다. 모델은 4장에서 세운 가설("평소 패턴 + 오늘의 차이")대로 판단한다.</div>
+
+  <h3 id="s7-1">7.1 Hyperparameter 튜닝 (Optuna)</h3>
+  <p>Optuna TPE로 52회 탐색했다. 목표는 validation 1시간 뒤 MAE이고, test는 튜닝이 끝난 뒤 한 번만 평가했다. loss function도 후보(l2, l1, huber)로 넣었다.</p>
+  <div class="tbl"><table>
+    <tr><th>설정</th><th class="n">기본값</th><th class="n">튜닝 결과</th><th>의미</th></tr>
+    <tr><td>objective</td><td class="n">l2</td><td class="n"><b>l1</b></td><td>loss function</td></tr>
+    <tr><td>num_leaves</td><td class="n">63</td><td class="n">254</td><td>트리 하나의 복잡도</td></tr>
+    <tr><td>learning_rate</td><td class="n">0.05</td><td class="n">0.0226</td><td>한 번에 배우는 양</td></tr>
+    <tr><td>min_child_samples</td><td class="n">100</td><td class="n">20</td><td>leaf 하나의 최소 표본</td></tr>
+    <tr><td>subsample</td><td class="n">0.8</td><td class="n">0.685</td><td>트리마다 쓰는 행 비율</td></tr>
+    <tr><td>colsample_bytree</td><td class="n">0.9</td><td class="n">0.875</td><td>트리마다 쓰는 변수 비율</td></tr>
+    <tr><td>reg_lambda</td><td class="n">1.0</td><td class="n">3.61</td><td>L2 regularization</td></tr>
+  </table></div>
+  <div class="tbl"><table>
+    <tr><th></th><th class="n">기본값</th><th class="n">튜닝</th><th class="n">개선</th></tr>
+    <tr><td>validation 1시간 뒤 MAE</td><td class="n">3.818대</td><td class="n">3.619대</td><td class="n">-5.2%</td></tr>
+    <tr class="hl"><td>test 1시간 뒤 MAE</td><td class="n">4.557대</td><td class="n">4.330대</td><td class="n">-5.0%</td></tr>
+  </table></div>
+  <p>l1 loss가 선택된 것은 4.3장의 두꺼운 꼬리(excess kurtosis 1.80)와 일치한다.</p>
+
+  <h3 id="s7-2">7.2 Walk-forward 교차검증</h3>
+  <p>test 기간을 2일씩 과거로 옮기며 4번 평가했다. 각 회차는 그 시점까지의 데이터만 쓴다.</p>
+  <div class="tbl"><table>
+    <tr><th>1시간 뒤 MAE (대)</th><th class="n">기준선</th><th class="n">lgbm 기본값</th><th class="n">lgbm 튜닝</th></tr>
+    <tr><td>11/16 ~ 11/17</td><td class="n">4.164</td><td class="n">3.928</td><td class="n">3.792</td></tr>
+    <tr><td>11/14 ~ 11/15</td><td class="n">5.911</td><td class="n">5.084</td><td class="n">4.836</td></tr>
+    <tr><td>11/12 ~ 11/13</td><td class="n">4.561</td><td class="n">4.171</td><td class="n">3.983</td></tr>
+    <tr><td>11/10 ~ 11/11</td><td class="n">3.665</td><td class="n">3.489</td><td class="n">3.367</td></tr>
+    <tr class="hl"><td>mean ± std</td><td class="n">4.575 ± 0.963</td><td class="n">4.168 ± 0.673</td><td class="n">3.995 ± 0.617</td></tr>
+  </table></div>
+  <figure><img src="assets/7_tuning_cv.png" alt="Walk-forward 교차검증" loading="lazy"></figure>
+  <p>튜닝은 4개 기간 모두에서 기본값보다 좋았고(평균 -4.1%), 표준편차도 줄었다. 운 좋은 기간이 아니라 꾸준한 개선이다.</p>
+
+  <h3 id="s7-3">7.3 예측 근거 (SHAP)</h3>
+  <p>튜닝된 모델을 최신 분할로 학습(76초, 트리 1,005개)하고, test 1시간 뒤 예측 3,000건의 TreeSHAP을 빈자리 대수로 계산했다.</p>
+  <div class="tbl"><table>
+    <tr><th>그룹</th><th class="n">비중</th><th>주요 변수 (mean |SHAP|)</th></tr>
+    <tr class="hl"><td>평소 패턴</td><td class="n">78.2%</td><td>평소 변화 10.38대, 평소(도착) 1.90대, 평소(지금) 0.64대, 지금 시각 0.61대</td></tr>
+    <tr class="hl"><td>오늘의 상태</td><td class="n">18.3%</td><td>지금 점유율 1.57대, 오늘 - 평소 차이 1.03대, 최근 변화 4개 합 0.73대</td></tr>
+    <tr><td>기타</td><td class="n">3.5%</td><td>총면 0.53대, 예측 거리 0.10대</td></tr>
+  </table></div>
+  <figure><img src="assets/7_3_shap.png" alt="SHAP" loading="lazy"></figure>
+  <ul>
+    <li>모델은 평소 패턴을 기본으로 깔고(78%) 오늘의 상태로 보정한다(18%). 4장에서 세운 가설을 모델이 확인해 준다.</li>
+    <li>오른쪽: 평소보다 더 차 있으면(+) 빈자리가 늘어난다고(+) 보정한다. <b>mean reversion</b>이다. 4.3장의 ACF가 1h에 0.85(1보다 작음)였던 것, 즉 차이가 조금씩 줄어든다는 것을 모델이 배웠다.</li>
+    <li>최근 5~60분 변화의 비중은 4%로 작아서, 센서 값이 한 번 튀어도 예측이 흔들리지 않는다.</li>
+  </ul>
+
+  <h3 id="s7-4">7.4 확률 신뢰도</h3>
+  <p>validation residual 분포로 "빈자리 3대 이상일 확률"을 만들고, test에서 "p%라고 한 경우 실제로 p% 자리가 있었나"를 확인했다.</p>
+  <div class="tbl"><table>
+    <tr><th>예측 확률 구간</th><th class="n">예측 평균</th><th class="n">실제 비율</th><th class="n">건수</th></tr>
+    <tr><td>0 ~ 20%</td><td class="n">5.2%, 13.9%</td><td class="n">6.1%, 14.6%</td><td class="n">14,132</td></tr>
+    <tr><td>20 ~ 50%</td><td class="n">24.8 ~ 42.5%</td><td class="n">35.0 ~ 55.8%</td><td class="n">5,098</td></tr>
+    <tr><td>50 ~ 90%</td><td class="n">57.0 ~ 85.5%</td><td class="n">55.6 ~ 76.0%</td><td class="n">6,197</td></tr>
+    <tr class="hl"><td>90 ~ 100%</td><td class="n">99.7%</td><td class="n">99.5%</td><td class="n">425,101</td></tr>
+  </table></div>
+  <figure><img src="assets/7_4_calibration.png" alt="Reliability diagram" loading="lazy"></figure>
+  <ul>
+    <li>Brier score 0.0136으로, 평균 확률만 쓸 때(0.0416)보다 67% 좋다. 전체의 94%를 차지하는 90% 이상 구간은 거의 정확하다.</li>
+    <li>중간 구간은 어긋난다. 20~50%는 실제보다 10~16%p 낮게, 70~90%는 9~13%p 높게 말한다 (해당 구간은 전체의 약 2%). isotonic regression 보정을 다음 단계로 둔다.</li>
+    <li>"100%"는 99.x%의 반올림이라 화면에는 "99% 이상"으로 표시한다.</li>
+  </ul>
+</section>
+
+<!-- 8 -->
+<section id="s8">
+  <h2><span class="no">8</span>최종 성능</h2>
+  <div class="lead">1시간 뒤 빈자리 평균 오차 3.63대, 오차율 2.26%. 1장의 "12대 차이"가 3.6대로 줄었다.</div>
+  <div class="tbl"><table>
+    <tr><th>도착까지</th><th class="n">MAE</th><th class="n">오차율 (총면 대비)</th><th class="n">RMSE</th><th class="n">지금값 유지 대비</th><th class="n">지금 + 평소 변화 대비</th></tr>
+    <tr><td>30분</td><td class="n">2.63대</td><td class="n">1.72%</td><td class="n">7.26대</td><td class="n">-59%</td><td class="n">-12%</td></tr>
+    <tr class="hl"><td>1시간</td><td class="n">3.63대</td><td class="n">2.26%</td><td class="n">9.11대</td><td class="n">-70%</td><td class="n">-16%</td></tr>
+    <tr><td>2시간</td><td class="n">5.01대</td><td class="n">2.91%</td><td class="n">11.94대</td><td class="n">-78%</td><td class="n">-20%</td></tr>
+  </table></div>
+  <p class="note">튜닝된 LightGBM, test 11/18 00:00 ~ 11/21 10:15, 채점 1,351,584건 (주차장 × 기준 시각 × 예측 거리 5분 ~ 2시간).</p>
+  <figure><img src="assets/8_final.png" alt="최종 성능" loading="lazy">
+    <figcaption>왼쪽: 예측 거리별 MAE. 가운데: 출발 시각별 1시간 뒤 MAE. 오른쪽: 주차장별 1시간 뒤 오차율.</figcaption></figure>
+  <ul>
+    <li><b>멀수록 이득이 크다</b>: 2시간 뒤에는 지금값 유지보다 78%, 기준선보다 20% 좋다. 4.3장의 "오늘의 차이가 몇 시간 이어진다"를 활용한 결과다.</li>
+    <li><b>시간대</b>: 지금값 유지는 7시, 17시에 24대까지 틀리지만, 모델은 하루 종일 6대 이하다. 기준선과의 차이는 날마다 달라지는 저녁(17~21시)에 가장 크다.</li>
+    <li><b>주차장별</b>: 57곳 중 33곳이 오차율 2% 이하, 49곳(86%)이 4% 이하다. 중앙값 1.77%. 4%를 넘는 8곳은 소형 주차장과 집계 초기화 주차장이다.</li>
+  </ul>
+</section>
+
+<!-- 9 -->
+<section id="s9">
+  <h2><span class="no">9</span>서비스 적용</h2>
+  <div class="lead">예측을 행동으로: 출발지와 목적지(또는 음성)를 넣으면 TMAP으로 도착 시각을 계산하고, 그 시점 기준으로 주차장 5곳을 추천한다.</div>
+  <h3>9.1 추천 흐름</h3>
+  <div class="tbl"><table>
+    <tr><th>단계</th><th>하는 일</th><th class="n">TMAP 호출</th></tr>
+    <tr><td>① 장소 검색</td><td>출발지, 목적지 텍스트 → 좌표</td><td class="n">POI 2건</td></tr>
+    <tr><td>② 자동차 경로</td><td>출발지 → 목적지 시간 → 주차장별 도착 시각 (미래 출발은 타임머신, 도착 목표가 있으면 출발 시각 역산)</td><td class="n">경로 1건</td></tr>
+    <tr><td>③ 후보</td><td>목적지 반경 1km (부족하면 2km) + 가는 길의 환승주차장</td><td class="n"></td></tr>
+    <tr><td>④ 예측</td><td>도착 시각의 예상 빈자리, 자리 있을 확률, 신뢰도</td><td class="n"></td></tr>
+    <tr><td>⑤ 정렬</td><td>확률 등급 → 총 소요시간 → 도보 거리 (요금은 표시만)</td><td class="n"></td></tr>
+    <tr><td>⑥ 마지막 이동</td><td>상위 5곳: 1.5km 이내는 도보 경로, 그 밖은 대중교통</td><td class="n">경로 ≤ 5건, 대중교통 ≤ 1건</td></tr>
+  </table></div>
+  <ul>
+    <li><b>응답 시간</b>: 실제 TMAP 호출 기준 2~5초 (목표 10초). 예측 자체는 57곳에 약 0.1초.</li>
+    <li><b>TMAP 한도 관리</b>: Free 요금제는 경로 하루 1,000건, 대중교통 10건이다. 같은 검색은 10분 동안 다시 부르지 않고, 한도를 넘으면 추정값으로 바꾼다.</li>
+    <li><b>음성 검색</b>: 브라우저 Web Speech API(Google 음성 인식)로 말을 문장으로 바꾸고, 출발지, 목적지, 출발 또는 도착 목표 시각("8시 반까지 가야 돼")을 뽑아 추천한다.</li>
+  </ul>
+  <h3>9.2 시스템 구조</h3>
+  <figure><img src="assets/9_arch.png" alt="아키텍처" loading="lazy">
+    <figcaption>데이터 수집 → 학습 → 모델 저장 → 서빙 → 서비스. 아래는 실제 추천 출력 예시 (수원SK스카이뷰 → 교대역).</figcaption></figure>
+  <h3>9.3 자동 재학습</h3>
+  <ul>
+    <li>GitHub Actions에서 최신 데이터로 다시 학습한다.</li>
+    <li>운영 모델을 새 모델과 <b>같은 평가 기간에서 다시 채점</b>해, 새 모델이 더 좋을 때만 교체한다. 기간마다 난이도가 달라 저장된 점수끼리 비교하면 공정하지 않기 때문이다.</li>
+  </ul>
+</section>
+
+<!-- 10 -->
+<section id="s10">
+  <h2><span class="no">10</span>한계와 향후 계획</h2>
+  <div class="tbl"><table>
+    <tr><th>한계</th><th>영향</th><th>계획</th></tr>
+    <tr><td>데이터 25.6일, 공휴일 없음</td><td>명절, 공휴일 패턴 미학습</td><td>수집을 계속하고 공휴일 이후 재학습</td></tr>
+    <tr><td>예측 대상 57곳</td><td>강남처럼 목적지 근처에 대상이 없는 지역</td><td>실시간 연계 주차장 확대 시 자동 반영</td></tr>
+    <tr><td>예측 범위 2시간</td><td>2시간 넘는 도착은 평소 패턴으로 계산</td><td>4h ACF 0.38 → 4시간까지 확장 검토</td></tr>
+    <tr><td>확률 중간 구간 어긋남</td><td>20~50%는 비관적, 70~90%는 낙관적</td><td>isotonic regression 보정</td></tr>
+    <tr><td>집계 초기화, 소형 주차장 센서</td><td>일부 주차장 오차율 4% 이상</td><td>급변 구간 제외 규칙, 변동폭 기준을 대수로 보완</td></tr>
+    <tr><td>날씨 데이터 overfitting</td><td>지금은 미사용</td><td>몇 달 데이터가 쌓이면 다시 검증</td></tr>
+  </table></div>
+</section>
+
+<!-- appendix -->
+<section id="appendix">
+  <h2><span class="no">부록</span></h2>
+  <h3>용어</h3>
+  <div class="tbl"><table>
+    <tr><th>용어</th><th>뜻</th></tr>
+    <tr><td>MAE</td><td>평균 절대 오차. 빈자리를 평균 몇 대 틀렸는지</td></tr>
+    <tr><td>오차율</td><td>MAE를 총면 대비 %로 나타낸 값 (점유율 오차 %p)</td></tr>
+    <tr><td>RMSE</td><td>제곱 평균 오차의 제곱근. 큰 오차를 더 무겁게 본다</td></tr>
+    <tr><td>Brier score</td><td>확률 예측의 오차. 0에 가까울수록 좋다</td></tr>
+    <tr><td>R²</td><td>전체 변동 중 모델이 설명하는 비율</td></tr>
+    <tr><td>ACF</td><td>자기상관. 지금 값이 N칸 뒤 값과 얼마나 닮았는지</td></tr>
+    <tr><td>Fourier order, harmonic, sideband</td><td>주기를 sin, cos로 표현할 때 쓰는 개수 / 기본 주기의 배수 주기 / 진폭 변조로 생기는 옆 봉우리</td></tr>
+    <tr><td>silhouette score</td><td>clustering이 얼마나 잘 나뉘었는지 (1에 가까울수록 좋음)</td></tr>
+    <tr><td>SHAP</td><td>예측에 각 변수가 얼마나 기여했는지 나눠 보여주는 값</td></tr>
+    <tr><td>walk-forward</td><td>평가 기간을 시간 순으로 옮기며 여러 번 평가하는 교차검증</td></tr>
+  </table></div>
+  <h3>재현</h3>
+  <ul>
+    <li>코드, 데이터: <a href="https://github.com/DylanKimGabia/jariisseoul-data">github.com/DylanKimGabia/jariisseoul-data</a></li>
+    <li>노트북: <code>ml/notebooks/</code> (02 모델 학습, 03 모델 비교, 04 튜닝, 05 추천, 06 음성 검색, 07 이 보고서의 분석)</li>
+  </ul>
+</section>
+
+<footer>자리있서울 (MacGyver) / 2026 해커톤 / 데이터: 서울 열린데이터광장, TMAP</footer>
+</main>
+</div>
+<script>
+  const links = [...document.querySelectorAll("nav a")];
+  const secs = links.map(a => document.querySelector(a.getAttribute("href"))).filter(Boolean);
+  const obs = new IntersectionObserver(es => {
+    es.forEach(e => {
+      if (!e.isIntersecting) return;
+      links.forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id));
+    });
+  }, { rootMargin: "0px 0px -75% 0px" });
+  secs.forEach(s => obs.observe(s));
+</script>
+</body>
+</html>
