@@ -3960,3 +3960,4 @@ collected_at,status,ok,fail,message
 2026-11-23 07:05:02,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=40 parking=62 
 2026-11-23 07:15:02,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=51 parking=60 
 2026-11-23 07:25:01,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=59 parking=62 
+2026-11-23 07:35:02,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=56 parking=60 
