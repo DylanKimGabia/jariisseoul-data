@@ -3940,3 +3940,4 @@ collected_at,status,ok,fail,message
 2026-11-23 03:50:02,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=17 parking=62 
 2026-11-23 04:00:02,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=11 parking=62 
 2026-11-23 04:10:20,ok,121,0,population=121 forecast=1452 road=121 weather=119 commercial=9 parking=60 
+2026-11-23 04:20:02,ok,121,0,population=121 forecast=1452 road=121 weather=118 commercial=6 parking=60 
