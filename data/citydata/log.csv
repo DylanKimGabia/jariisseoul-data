@@ -4258,3 +4258,4 @@ collected_at,status,ok,fail,message
 2026-11-25 08:05:01,ok,121,0,population=121 forecast=1452 road=121 weather=120 commercial=65 parking=62 
 2026-11-25 08:15:01,ok,121,0,population=121 forecast=1452 road=121 weather=120 commercial=70 parking=62 
 2026-11-25 08:20:31,ok,121,0,population=121 forecast=1452 road=121 weather=120 commercial=0 parking=62 
+2026-11-25 08:30:03,ok,121,0,population=121 forecast=1452 road=121 weather=117 commercial=68 parking=62 
