@@ -4245,3 +4245,4 @@ collected_at,status,ok,fail,message
 2026-11-25 05:55:02,ok,121,0,population=121 forecast=1452 road=121 weather=120 commercial=15 parking=61 
 2026-11-25 06:05:02,ok,121,0,population=121 forecast=1452 road=121 weather=120 commercial=14 parking=62 
 2026-11-25 06:15:01,ok,121,0,population=121 forecast=1452 road=121 weather=120 commercial=20 parking=61 
+2026-11-25 06:25:02,ok,121,0,population=121 forecast=1452 road=121 weather=120 commercial=32 parking=62 
