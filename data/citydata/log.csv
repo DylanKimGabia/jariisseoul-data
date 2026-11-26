@@ -4410,3 +4410,4 @@ collected_at,status,ok,fail,message
 2026-11-26 09:00:01,ok,121,0,population=121 forecast=1452 road=121 weather=111 commercial=77 parking=46 
 2026-11-26 09:10:02,ok,121,0,population=121 forecast=1452 road=121 weather=120 commercial=76 parking=45 
 2026-11-26 09:20:02,ok,121,0,population=121 forecast=1452 road=121 weather=87 commercial=74 parking=44 
+2026-11-26 09:30:02,ok,121,0,population=121 forecast=1452 road=121 weather=120 commercial=73 parking=46 
